@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Modern Royal Scale */
+  --royal-50: #eef3ff;
+  --royal-100: #d1e0ff;
+  --royal-200: #a6c1ff;
+  --royal-300: #759bff;
+  --royal-400: #4470ff;
+  --royal-500: #053594;
+  --royal-600: #042b7a;
+  --royal-700: #032161;
+  --royal-800: #021847;
+  --royal-900: #010e2e;
+
+  /* Neutral Scale */
+  --neutral-50: #f8f9fa;
+  --neutral-100: #f0f4f8;
+  --neutral-200: #e9ecef;
+  --neutral-300: #dee2e6;
+  --neutral-400: #ced4da;
+  --neutral-500: #6e7683;
+  --neutral-600: #4a5056;
+  --neutral-700: #343a40;
+  --neutral-800: #1e1e1e;
+  --neutral-900: #121212;
+
+  /* Circuit Green Scale */
+  --green-50: #e6f6f0;
+  --green-100: #b3e6d2;
+  --green-200: #80d6b5;
+  --green-300: #4dc697;
+  --green-400: #26b980;
+  --green-500: #00855d;
+  --green-600: #006b4a;
+  --green-700: #005137;
+  --green-800: #003724;
+  --green-900: #001c12;
+
+  /* Diagnostic Red Scale */
+  --red-50: #ffebeb;
+  --red-100: #ffd1d1;
+  --red-200: #ffb3b3;
+  --red-300: #ff8080;
+  --red-400: #ff4d4d;
+  --red-500: #dc3545;
+  --red-600: #b32e3a;
+  --red-700: #8a232c;
+  --red-800: #61191f;
+  --red-900: #380e12;
+
+  /* Status Orange Scale */
+  --orange-50: #fff4e6;
+  --orange-100: #ffe4bf;
+  --orange-200: #ffd199;
+  --orange-300: #ffbe72;
+  --orange-400: #ffab4c;
+  --orange-500: #f76707;
+  --orange-600: #c95906;
+  --orange-700: #9b4504;
+  --orange-800: #6e3103;
+  --orange-900: #401c02;
+
+  /* Semantic Colors */
+  --primary: var(--royal-500);
+  --primary-hover: var(--royal-400);
+  --primary-pressed: var(--royal-600);
+  --primary-bg: var(--royal-50);
+
+  --text-primary: var(--neutral-600);
+  --text-secondary: var(--neutral-500);
+  --text-disabled: var(--neutral-400);
+
+  --background: var(--neutral-50);
+  --background-card: #ffffff;
+  --background-code: var(--neutral-100);
+
+  --error: var(--red-500);
+  --error-bg: var(--red-50);
+
+  --warning: var(--orange-500);
+  --warning-bg: var(--orange-50);
+
+  --success: var(--green-500);
+  --success-bg: var(--green-50);
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] {
+  --background: var(--neutral-800);
+  --background-card: var(--neutral-700);
+  --background-code: var(--neutral-900);
+
+  --text-primary: var(--neutral-200);
+  --text-secondary: var(--neutral-400);
+
+  --primary: var(--royal-400);
+  --primary-hover: var(--royal-300);
+  --primary-pressed: var(--royal-500);
+}
+
+/* Buttons */
+button {
+  font-family: "Roboto", sans-serif;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
