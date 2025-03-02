@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/utils/supabase/component";
+import { AuthError } from "@/types/errors";
 
 const AuthForm: React.FC = () => {
   const router = useRouter();
@@ -29,7 +30,11 @@ const AuthForm: React.FC = () => {
 
       router.push("/");
     } catch (err) {
-      setError((err as Error).message);
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -42,8 +47,8 @@ const AuthForm: React.FC = () => {
     });
     if (error) {
       console.error("Log in error:", error);
-      throw new Error(
-        "Failed to log in. Please try again. Error: " + error.message,
+      throw new AuthError(
+        "Failed to log in. Please check your credentials and try again.",
       );
     }
   }
@@ -52,8 +57,8 @@ const AuthForm: React.FC = () => {
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
       console.error("Sign up error:", error);
-      throw new Error(
-        "Failed to sign up. Please try again. Error: " + error.message,
+      throw new AuthError(
+        "Failed to sign up. Please check your information and try again.",
       );
     }
   }

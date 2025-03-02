@@ -2,7 +2,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { v4 as uuidv4 } from "uuid";
 import { saveVehicle } from "@/utils/db";
+import {
+  AuthError,
+  DatabaseError,
+  NetworkError,
+  ValidationError,
+} from "@/types/errors";
 import { Vehicle } from "@/types/vehicle";
+import ErrorDisplay from "./ErrorDisplay";
 
 interface Props {
   vehicle?: Vehicle;
@@ -36,53 +43,80 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value, type } = e.target;
+    let processedValue = value;
+
+    if (type === "number") {
+      processedValue = value === "" ? "0" : value;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "number" ? parseFloat(value) || 0 : value.trim(), // Ensure numbers are stored correctly
+      [name]: type === "number" ? Number(processedValue) : processedValue,
     }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Basic validation
-    if (!formData.make || !formData.model || !formData.year) {
-      setError("Make, Model, and Year are required.");
-      return;
-    }
-    if (formData.year < 1900 || formData.year > new Date().getFullYear()) {
-      setError("Please enter a valid year.");
-      return;
-    }
-    setError(null);
     setIsSubmitting(true);
+    setError(null);
 
     try {
+      // Validate required fields
+      if (!formData.make) {
+        throw new ValidationError("Make is required");
+      }
+      if (!formData.model) {
+        throw new ValidationError("Model is required");
+      }
+      if (
+        !formData.year ||
+        formData.year < 1900 ||
+        formData.year > new Date().getFullYear() + 1
+      ) {
+        throw new ValidationError(
+          `Year must be between 1900 and ${new Date().getFullYear() + 1}`,
+        );
+      }
+
+      // Generate ID if new vehicle
       if (!formData.id) {
         formData.id = uuidv4();
       }
+
+      // Ensure user_id is set
+      formData.user_id = userId;
+
       await saveVehicle(formData);
-    } catch (error) {
-      setError(
-        "Failed to save vehicle. Please check your internet connection and try again. Error: " +
-          error,
-      );
+      onSave();
+    } catch (err) {
+      console.error("Error saving vehicle:", err);
+      if (err instanceof ValidationError) {
+        setError(err.message);
+      } else if (err instanceof NetworkError) {
+        setError(
+          "Network issue. Vehicle saved locally and will sync when you're back online.",
+        );
+      } else if (err instanceof AuthError) {
+        setError("Authentication error. Please sign in again.");
+      } else if (err instanceof DatabaseError) {
+        setError("Failed to save vehicle. Please try again.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
-      onSave();
     }
   };
 
-  if (error)
+  if (error) {
     return (
-      <div className="text-center text-error mt-10">
-        <p>{error}</p>
-        <p className="text-sm text-neutral-800">
-          Whoa! What happened there? Check your network connection or try again
-          later.
-        </p>
-      </div>
+      <ErrorDisplay
+        message={error}
+        details="Please check the form data and try again."
+        onRetry={() => setError(null)}
+      />
     );
+  }
 
   return (
     <form onSubmit={handleSubmit}>

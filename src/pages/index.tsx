@@ -8,11 +8,12 @@ import {
   DollarSignIcon,
   EyeIcon,
   PlusIcon,
-  RefreshCwIcon,
   WrenchIcon,
 } from "lucide-react";
+import ErrorDisplay from "@/components/ErrorDisplay";
 import Layout from "@/components/Layout";
 import { getVehicles, getVehicleServices } from "@/utils/db";
+import { AuthError, DatabaseError, NetworkError } from "@/types/errors";
 import { Vehicle } from "@/types/vehicle";
 
 interface ServiceStats {
@@ -97,17 +98,19 @@ export default function Home() {
       setVehiclesLoading(false);
 
       return true;
-    } catch (error) {
-      console.error("Failed to fetch data:", error);
-      if (error instanceof Error && error.name === "NetworkError") {
-        setError("Network error. Please check your internet connection.");
-      } else if (error instanceof Error && error.name === "AuthError") {
-        setError("Authentication error. Please log in again.");
-        router.push("/auth");
-      } else {
+    } catch (err) {
+      console.error("Failed to fetch data:", err);
+      if (err instanceof NetworkError) {
         setError(
-          `Failed to load data: ${(error as Error)?.message || "Unknown error"}`,
+          "Network connection issue. Please check your internet connection.",
         );
+      } else if (err instanceof AuthError) {
+        setError("Authentication error. Please sign in again.");
+        router.push("/auth");
+      } else if (err instanceof DatabaseError) {
+        setError("Failed to load vehicle data. Please try again.");
+      } else {
+        setError("An unexpected error occurred. Please try again.");
       }
 
       return false;
@@ -132,20 +135,13 @@ export default function Home() {
     await fetchVehicleData();
   }, [fetchVehicleData]);
 
-  if (error)
+  if (error) {
     return (
-      <div className="text-center mt-10">
-        <p className="text-error mb-4">{error}</p>
-        <button
-          onClick={refreshData}
-          aria-label="Refresh data"
-          className="px-4 py-2 bg-primary text-white rounded-md"
-        >
-          <RefreshCwIcon className="w-5 h-5" />
-          Refresh
-        </button>
-      </div>
+      <Layout>
+        <ErrorDisplay message={error} onRetry={refreshData} />
+      </Layout>
     );
+  }
 
   if (isLoading && !user)
     return (

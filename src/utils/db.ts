@@ -1,5 +1,6 @@
 import { openDB } from "idb";
 import { createClient } from "@/utils/supabase/component";
+import { AuthError, DatabaseError, NetworkError } from "@/types/errors";
 import { Service } from "@/types/service";
 import { Vehicle } from "@/types/vehicle";
 
@@ -56,7 +57,7 @@ export async function getVehicles(): Promise<Vehicle[]> {
     return (await db.getAll(VEHICLE_STORE)) as Vehicle[];
   } catch (error) {
     console.error("Failed to get vehicles:", error);
-    throw new Error("Failed to get vehicles");
+    throw new DatabaseError("Failed to retrieve vehicles. Please try again.");
   }
 }
 
@@ -67,7 +68,9 @@ export async function getVehicle(id: string): Promise<Vehicle | undefined> {
     return (await db.get(VEHICLE_STORE, id)) as Vehicle;
   } catch (error) {
     console.error(`Failed to get vehicle with id ${id}:`, error);
-    throw new Error(`Failed to get vehicle with id ${id}`);
+    throw new DatabaseError(
+      `Failed to retrieve vehicle details. Please try again.`,
+    );
   }
 }
 
@@ -100,7 +103,7 @@ export async function saveVehicle(vehicle: Vehicle) {
     }
   } catch (error) {
     console.error("Failed to save vehicle:", error);
-    throw new Error("Failed to save vehicle");
+    throw new DatabaseError("Failed to save vehicle. Please try again.");
   }
 }
 
@@ -226,31 +229,51 @@ export async function getTotalServiceStats(): Promise<{
 
 // Sync with Supabase
 async function syncWithSupabase() {
-  const db = await initDB();
-  const queue = await db.getAll(SYNC_STORE);
+  try {
+    const db = await initDB();
+    const queue = await db.getAll(SYNC_STORE);
 
-  for (const item of queue) {
-    try {
-      let error;
-      if (item.operation === "upsert") {
-        ({ error } = await supabase
-          .from(item.table)
-          .upsert(item.data, { onConflict: "id" }));
-      } else if (item.operation === "delete") {
-        ({ error } = await supabase
-          .from(item.table)
-          .delete()
-          .eq("id", item.data.id));
-      }
+    for (const item of queue) {
+      try {
+        let error;
+        if (item.operation === "upsert") {
+          ({ error } = await supabase
+            .from(item.table)
+            .upsert(item.data, { onConflict: "id" }));
+        } else if (item.operation === "delete") {
+          ({ error } = await supabase
+            .from(item.table)
+            .delete()
+            .eq("id", item.data.id));
+        }
 
-      if (!error) {
-        const tx = db.transaction([SYNC_STORE], "readwrite");
-        await tx.objectStore(SYNC_STORE).delete(item.id);
-        await tx.done;
+        if (!error) {
+          const tx = db.transaction([SYNC_STORE], "readwrite");
+          await tx.objectStore(SYNC_STORE).delete(item.id);
+          await tx.done;
+        } else if (error.code === "PGRST301") {
+          // Handle authentication errors
+          throw new AuthError();
+        }
+      } catch (error) {
+        console.error("Sync failed for item:", item, error);
+        if (error instanceof AuthError) {
+          throw error; // Re-throw auth errors to be handled by the caller
+        }
+        // For other errors, we continue with the next item
       }
-    } catch (error) {
-      console.error("Sync failed for item:", item, error);
     }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw error; // Re-throw auth errors
+    }
+    if (!navigator.onLine) {
+      throw new NetworkError();
+    }
+    console.error("Sync with Supabase failed:", error);
+    throw new DatabaseError(
+      "Failed to sync with the server. Changes will be saved locally and synced when possible.",
+    );
   }
 }
 
