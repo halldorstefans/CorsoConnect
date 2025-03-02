@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
+import { useVehicles } from "@/contexts/VehicleContext";
 import { format } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
-import { saveVehicle } from "@/utils/db";
 import { getInputClassName, validationRules } from "@/utils/validation";
 import {
   AuthError,
@@ -21,6 +21,7 @@ interface Props {
 }
 
 const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
+  const { saveVehicleData } = useVehicles();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,33 +56,31 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
 
   const onSubmit = async (data: Vehicle) => {
     setIsSubmitting(true);
-    setError(null);
-
     try {
-      // Prepare the data
-      const vehicleData: Vehicle = {
-        ...data,
-        id: data.id || uuidv4(),
-        user_id: userId,
-        updated_at: new Date(),
-        created_at: data.created_at || new Date(),
-      };
+      if (!data.id) {
+        data.id = uuidv4();
+        data.created_at = new Date();
+        data.user_id = userId;
+      }
 
-      // Save to database
-      await saveVehicle(vehicleData);
-      onSave();
+      data.updated_at = new Date();
+
+      const success = await saveVehicleData(data);
+      if (success) {
+        onSave();
+      }
     } catch (err) {
       console.error("Failed to save vehicle:", err);
-      if (err instanceof ValidationError) {
-        setError(err.message);
-      } else if (err instanceof NetworkError) {
+      if (err instanceof NetworkError) {
         setError(
-          "Network error. Your changes will sync when you're back online.",
+          "Network connection issue. Please check your internet connection.",
         );
-      } else if (err instanceof DatabaseError) {
-        setError("Failed to save to database. Please try again.");
       } else if (err instanceof AuthError) {
         setError("Authentication error. Please sign in again.");
+      } else if (err instanceof DatabaseError) {
+        setError("Failed to save vehicle. Please try again.");
+      } else if (err instanceof ValidationError) {
+        setError("Invalid vehicle data. Please check your inputs.");
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
@@ -110,21 +109,7 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
           ← Back to Vehicles
         </Link>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label
-            htmlFor="nickname"
-            className="block text-lg font-bold text-neutral-800"
-          >
-            Nickname
-          </label>
-          <input
-            id="nickname"
-            className={getInputClassName(errors.nickname)}
-            placeholder="NickName (e.g. Lightning McQueen)"
-            {...register("nickname")}
-          />
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">        
 
         <div>
           <label
@@ -179,6 +164,21 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
           {errors.year && (
             <p className="text-error text-sm">{errors.year.message}</p>
           )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="nickname"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Nickname
+          </label>
+          <input
+            id="nickname"
+            className={getInputClassName(errors.nickname)}
+            placeholder="NickName (e.g. Lightning McQueen)"
+            {...register("nickname")}
+          />
         </div>
 
         <div>

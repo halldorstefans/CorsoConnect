@@ -1,92 +1,88 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVehicles } from "@/contexts/VehicleContext";
+import ErrorDisplay from "@/components/ErrorDisplay";
 import Layout from "@/components/Layout";
 import ServiceHistory from "@/components/ServiceList";
 import VehicleForm from "@/components/VehicleForm";
-import { getVehicle, getVehicleServices } from "@/utils/db";
-import { createClient } from "@/utils/supabase/component";
-import { Service } from "@/types/service";
-import { Vehicle } from "@/types/vehicle";
 
 const VehicleDetails = () => {
   const router = useRouter();
-  const supabase = createClient();
+  const { user } = useAuth();
+  const {
+    selectedVehicle,
+    services,
+    vehicleLoading,
+    servicesLoading,
+    error,
+    fetchVehicle,
+    fetchServices,
+    clearError,
+  } = useVehicles();
 
   const { id } = router.query;
-  const [userId, setUserId] = useState<string>("");
-  const [vehicle, setVehicle] = useState<Vehicle | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchVehicle = useCallback(async () => {
-    if (!id) return;
-    try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data?.user) {
-        console.error("Get user error:", error);
-        setError("Failed to load user. Please try again.");
-      }
-      if (data.user) {
-        setUserId(data.user.id);
-      } else {
-        router.push("/auth");
-      }
-      const fetchedVehicle = await getVehicle(id as string);
-      if (fetchedVehicle) {
-        setVehicle(fetchedVehicle);
-        const fetchedVehicleServices = await getVehicleServices(
-          fetchedVehicle.id,
-        );
-        if (fetchedVehicleServices) {
-          setServices(fetchedVehicleServices);
-        } else {
-          setError("Services not found.");
-        }
-      } else {
-        setError("Vehicle not found.");
-      }
-    } catch (err) {
-      console.error("Error fetching vehicle:", err);
-      setError("Failed to load vehicle details. Please try again.");
-    } finally {
-    }
-  }, [id, router, supabase.auth]);
-
-  const handleSave = async () => {
-    fetchVehicle();
-    setShowForm(false);
-  };
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   useEffect(() => {
-    if (typeof id === "string") {
-      fetchVehicle();
-    }
-  }, [id, fetchVehicle]);
+    if (id && typeof id === "string" && user) {
+      if (!selectedVehicle || selectedVehicle.id !== id) {
+        fetchVehicle(id);
+      }
 
-  if (error)
+      if (
+        services.length === 0 ||
+        (services.length > 0 && services[0].vehicle_id !== id)
+      ) {
+        fetchServices(id);
+      }
+
+      setInitialLoadDone(true);
+    }
+  }, [id, user, selectedVehicle, services, fetchVehicle, fetchServices]);
+
+  const handleSave = () => {
+    setShowForm(false);
+    if (id && typeof id === "string") {
+      fetchVehicle(id);
+      fetchServices(id);
+    }
+  };
+
+  if ((vehicleLoading || servicesLoading) && !initialLoadDone) {
     return (
-      <div className="text-center text-error mt-10">
-        <p>{error}</p>
-        <p className="text-sm text-neutral-600">
-          Failed to load data. Please check your network connection or try again
-          later.
-        </p>
-        <button
-          onClick={fetchVehicle}
-          className="mt-2 px-4 py-2 bg-error text-neutral-600 rounded hover:bg-warning transition"
-        >
-          Retry
-        </button>
-      </div>
+      <Layout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
+        </div>
+      </Layout>
     );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <ErrorDisplay
+          message={error}
+          onRetry={() => {
+            clearError();
+            if (id && typeof id === "string") {
+              fetchVehicle(id);
+              fetchServices(id);
+            }
+          }}
+        />
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
       <div>
         <div className="bg-background-card p-6 shadow-lg rounded-lg">
-          {vehicle && !showForm && (
+          {selectedVehicle && !showForm && (
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-neutral-800 text-center md:text-left">
@@ -96,69 +92,118 @@ const VehicleDetails = () => {
                   ← Back to Vehicles
                 </Link>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  ["Nickname", vehicle.nickname],
-                  ["Make", vehicle.make],
-                  ["Model", vehicle.model],
-                  ["Year", vehicle.year],
-                  ["VIN", vehicle.vin],
-                  ["Colour", vehicle.colour],
-                  ["Registration Number", vehicle.registration_number],
-                  ["Purchase Date", vehicle.purchase_date],
-                  [
-                    "Purchase Price",
-                    `${vehicle.purchase_price?.toLocaleString()}`,
-                  ],
-                  [
-                    "Odometer Reading",
-                    `${vehicle.odometer_reading} ${vehicle.odometer_unit}`,
-                  ],
-                ].map(([label, value]) => (
-                  <div
-                    key={
-                      label instanceof Date ? label.toLocaleDateString() : label
-                    }
-                    className="space-y-2"
-                  >
-                    <label className="text-lg font-bold text-neutral-800">
-                      {label instanceof Date
-                        ? label.toLocaleDateString()
-                        : label}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-neutral-800">
+                    {selectedVehicle.make} {selectedVehicle.model} (
+                    {selectedVehicle.year})
+                  </h2>
+                </div>
+                {selectedVehicle.nickname && (
+                  <div>
+                    <label className="text-lg font-semibold text-neutral-800">
+                      Nickname:
                     </label>
-                    <p className="w-full rounded-md text-neutral-800">
-                      {value instanceof Date
-                        ? value.toLocaleDateString()
-                        : value}
+                    <p className="text-neutral-600">
+                      {selectedVehicle.nickname}
                     </p>
                   </div>
-                ))}
+                )}
+                <div className="flex justify-between">
+                  {selectedVehicle.registration_number && (
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        Registration:
+                      </label>
+                      <p className="text-neutral-600">
+                        {selectedVehicle.registration_number}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between">
+                  {selectedVehicle.vin && (
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        VIN:
+                      </label>
+                      <p className="text-neutral-600">{selectedVehicle.vin}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between">
+                  {selectedVehicle.colour && (
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        Color:
+                      </label>
+                      <p className="text-neutral-600">
+                        {selectedVehicle.colour}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between">
+                  {selectedVehicle.purchase_price !== undefined &&
+                    selectedVehicle.purchase_price !== null &&
+                    selectedVehicle.purchase_price !== 0 && (
+                      <div>
+                        <label className="text-lg font-semibold text-neutral-800">
+                          Purchase Price:
+                        </label>
+                        <p className="text-neutral-600">
+                          ${selectedVehicle.purchase_price.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                </div>
+                <div className="flex justify-between">
+                  {selectedVehicle.odometer_reading !== undefined &&
+                    selectedVehicle.odometer_reading !== null &&
+                    selectedVehicle.odometer_reading !== 0 && (
+                      <div>
+                        <label className="text-lg font-semibold text-neutral-800">
+                          Odometer:
+                        </label>
+                        <p className="text-neutral-600">
+                          {selectedVehicle.odometer_reading}{" "}
+                          {selectedVehicle.odometer_unit || "miles"}
+                        </p>
+                      </div>
+                    )}
+                </div>
               </div>
               <button
                 onClick={() => setShowForm(true)}
-                className="bg-primary hover:bg-primary-hover w-full my-4 rounded-lg text-background transition"
+                className="bg-primary text-background w-full my-4 rounded-lg hover:bg-primary-hover transition p-2"
               >
                 Edit Vehicle
               </button>
             </div>
           )}
-          {showForm && vehicle && (
+          {showForm && selectedVehicle && user && (
             <VehicleForm
-              vehicle={vehicle}
-              userId={userId}
+              vehicle={selectedVehicle}
+              userId={user.id}
               onSave={handleSave}
             />
           )}
         </div>
-        {vehicle && (
-          <>
-            <ServiceHistory
-              userId={userId}
-              vehicle={vehicle}
-              services={services}
-              onSave={handleSave}
-            />
-          </>
+
+        {servicesLoading && initialLoadDone && (
+          <div className="text-center py-4">
+            <div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-primary"></div>
+            <span className="ml-2">Updating services...</span>
+          </div>
+        )}
+
+        {selectedVehicle && user && (
+          <ServiceHistory
+            userId={user.id}
+            vehicle={selectedVehicle}
+            services={services}
+            onSave={handleSave}
+          />
         )}
       </div>
     </Layout>

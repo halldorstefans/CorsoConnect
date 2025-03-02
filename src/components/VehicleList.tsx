@@ -1,65 +1,16 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useVehicles } from "@/contexts/VehicleContext";
 import { Car, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/dateUtils";
-import { deleteVehicle, getVehicles } from "@/utils/db";
-import { AuthError, DatabaseError, NetworkError } from "@/types/errors";
-import { Vehicle } from "@/types/vehicle";
 import ErrorDisplay from "./ErrorDisplay";
 import Modal from "./Modal";
 
 const VehicleList = () => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { vehicles, loading, error, removeVehicle, fetchVehicles } =
+    useVehicles();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
-
-  const fetchVehicles = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getVehicles();
-      setVehicles(data);
-    } catch (err) {
-      console.error("Failed to load vehicles:", err);
-      if (err instanceof NetworkError) {
-        setError(
-          "Network connection issue. Please check your internet connection.",
-        );
-      } else if (err instanceof AuthError) {
-        setError("Authentication error. Please sign in again.");
-      } else if (err instanceof DatabaseError) {
-        setError("Failed to load vehicles. Please try again.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchVehicles();
-  }, []);
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteVehicle(id);
-      setVehicles(vehicles.filter((vehicle) => vehicle.id !== id));
-    } catch (err) {
-      console.error("Failed to delete vehicle:", err);
-      if (err instanceof NetworkError) {
-        setError(
-          "Network connection issue. Vehicle will be deleted when you're back online.",
-        );
-      } else if (err instanceof AuthError) {
-        setError("Authentication error. Please sign in again.");
-      } else {
-        setError("Failed to delete vehicle. Please try again.");
-      }
-    }
-  };
 
   const openModal = (id: string) => {
     setVehicleToDelete(id);
@@ -71,24 +22,30 @@ const VehicleList = () => {
     setVehicleToDelete(null);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (vehicleToDelete) {
-      handleDelete(vehicleToDelete);
+      await removeVehicle(vehicleToDelete);
       closeModal();
     } else {
       console.error("No vehicle selected");
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <ErrorDisplay message={error} onRetry={fetchVehicles} />;
+  }
+
   return (
     <div className="max-w-auto mx-auto">
-      {error ? (
-        <ErrorDisplay message={error} onRetry={fetchVehicles} />
-      ) : loading ? (
-        <div className="flex justify-center items-center h-screen">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
-        </div>
-      ) : vehicles.length === 0 ? (
+      {vehicles.length === 0 ? (
         <p className="text-neutral-800 text-center">No vehicles found.</p>
       ) : (
         <ul className="space-y-2">

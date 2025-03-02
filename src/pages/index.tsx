@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
+import { useVehicles } from "@/contexts/VehicleContext";
 import {
   CarIcon,
   DollarSignIcon,
@@ -12,149 +11,46 @@ import {
 } from "lucide-react";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import Layout from "@/components/Layout";
-import { getVehicles, getVehicleServices } from "@/utils/db";
-import { AuthError, DatabaseError, NetworkError } from "@/types/errors";
-import { Vehicle } from "@/types/vehicle";
-
-interface ServiceStats {
-  totalServicesCost: number;
-  totalServices: number;
-}
-
-interface VehicleStats {
-  vehicleTotalCost: number;
-  vehicleServiceCount: number;
-}
 
 export default function Home() {
-  const router = useRouter();
-  const { user, isLoading } = useAuth();
-
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [vehiclesLoading, setVehiclesLoading] = useState(false);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [serviceStatsMap, setServiceStatsMap] = useState<ServiceStats | null>(
-    null,
-  );
-  const [vehicleStats, setVehicleStats] = useState<
-    Record<string, VehicleStats>
-  >({});
-
-  const fetchVehicleData = useCallback(async () => {
-    if (!user) return;
-
-    try {
-      setVehiclesLoading(true);
-      setServicesLoading(true);
-      setError(null);
-
-      const vehiclesData = await getVehicles();
-
-      setVehicles(vehiclesData);
-
-      // Fetch service data for all vehicles efficiently
-      const vehicleStatsObject: Record<string, VehicleStats> = {};
-      let totalCost = 0;
-      let totalServiceCount = 0;
-
-      // Use Promise.all to fetch all vehicle services in parallel
-      const servicesPromises = vehiclesData.map((vehicle) =>
-        getVehicleServices(vehicle.id),
-      );
-      const allVehicleServices = await Promise.all(servicesPromises);
-
-      // Process the results
-      vehiclesData.forEach((vehicle, index) => {
-        const services = allVehicleServices[index];
-        const vehicleTotalCost = services.reduce(
-          (sum, service) => sum + service.cost,
-          0,
-        );
-        const vehicleServiceCount = services.length;
-
-        vehicleStatsObject[vehicle.id] = {
-          vehicleTotalCost,
-          vehicleServiceCount,
-        };
-
-        totalCost += vehicleTotalCost;
-        totalServiceCount += vehicleServiceCount;
-      });
-
-      setServiceStatsMap({
-        totalServicesCost: totalCost,
-        totalServices: totalServiceCount,
-      });
-      setServicesLoading(false);
-
-      setVehicleStats(vehicleStatsObject);
-      if (vehiclesData.length > 0) {
-        setSelectedVehicle(vehiclesData[0]);
-      } else {
-        setSelectedVehicle(null);
-      }
-      setVehiclesLoading(false);
-
-      return true;
-    } catch (err) {
-      console.error("Failed to fetch data:", err);
-      if (err instanceof NetworkError) {
-        setError(
-          "Network connection issue. Please check your internet connection.",
-        );
-      } else if (err instanceof AuthError) {
-        setError("Authentication error. Please sign in again.");
-        router.push("/auth");
-      } else if (err instanceof DatabaseError) {
-        setError("Failed to load vehicle data. Please try again.");
-      } else {
-        setError("An unexpected error occurred. Please try again.");
-      }
-
-      return false;
-    } finally {
-      setVehiclesLoading(false);
-      setServicesLoading(false);
-    }
-  }, [user, router]);
-
-  useEffect(() => {
-    if (user) {
-      fetchVehicleData();
-    }
-  }, [user, fetchVehicleData]);
+  const { user } = useAuth();
+  const {
+    vehicles,
+    selectedVehicle,
+    vehicleStats,
+    serviceStats,
+    loading,
+    error,
+    fetchVehicles,
+    setSelectedVehicle,
+  } = useVehicles();
 
   const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const vehicle = vehicles.find((v) => v.id === e.target.value) || null;
     setSelectedVehicle(vehicle);
   };
 
-  const refreshData = useCallback(async () => {
-    await fetchVehicleData();
-  }, [fetchVehicleData]);
-
   if (error) {
     return (
       <Layout>
-        <ErrorDisplay message={error} onRetry={refreshData} />
+        <ErrorDisplay message={error} onRetry={fetchVehicles} />
       </Layout>
     );
   }
 
-  if (isLoading && !user)
+  if (loading && !user)
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
       </div>
     );
 
-  if (!isLoading && !user)
+  // If not logged in, show welcome screen
+  if (!loading && !user)
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background text-text-primary">
-        <h1 className="text-center text-3xl font-bold mb-2">
-          Welcome to Corso Connect!
+      <div className="flex flex-col items-center justify-center h-screen bg-background">
+        <h1 className="text-4xl font-bold mb-4 text-neutral-800">
+          Welcome to Corso Connect
         </h1>
         <Image
           src="/images/Corso_Connect_Logo.png"
@@ -163,7 +59,6 @@ export default function Home() {
           height="500"
           className="mb-2"
         />
-
         <h2 className="text-center text-xl font-semibold mb-4">
           Your car&apos;s history and data, connected.
         </h2>
@@ -207,8 +102,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats Section */}
-        {!servicesLoading && (
+        {/* Overall Stats */}
+        {!loading && serviceStats && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
               <CarIcon className="w-6 h-6 mb-2" aria-label="Total Vehicles" />
@@ -221,7 +116,7 @@ export default function Home() {
                 aria-label="Total Service Cost"
               />
               <p className="text-xl font-bold">
-                ${serviceStatsMap?.totalServicesCost.toFixed(2)}
+                ${serviceStats.totalServicesCost.toFixed(2)}
               </p>
               <p className="text-background">Total Service Cost</p>
             </div>
@@ -230,16 +125,14 @@ export default function Home() {
                 className="w-6 h-6 mb-2"
                 aria-label="Total Services"
               />
-              <p className="text-xl font-bold">
-                {serviceStatsMap?.totalServices}
-              </p>
+              <p className="text-xl font-bold">{serviceStats.totalServices}</p>
               <p className="text-background">Total Services</p>
             </div>
           </div>
         )}
 
         {/* Vehicle Selection */}
-        {!vehiclesLoading && (
+        {!loading && selectedVehicle && (
           <div className="mt-4">
             <label className="block text-lg font-bold text-neutral-800 mb-2">
               Select Vehicle:
@@ -268,7 +161,7 @@ export default function Home() {
           </div>
         )}
 
-        {!vehiclesLoading && selectedVehicle && (
+        {!loading && selectedVehicle && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
               <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
