@@ -203,7 +203,7 @@ export async function deleteService(serviceId: string) {
 }
 
 export async function getTotalServiceStats(): Promise<{
-  totalServiceCost: number;
+  totalServicesCost: number;
   totalServices: number;
 }> {
   try {
@@ -212,7 +212,7 @@ export async function getTotalServiceStats(): Promise<{
     const allServices: Service[] = await tx.store.getAll();
 
     return {
-      totalServiceCost: allServices.reduce(
+      totalServicesCost: allServices.reduce(
         (total, service) => total + service.cost,
         0,
       ),

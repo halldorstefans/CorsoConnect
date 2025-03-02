@@ -1,27 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { User } from "@supabase/supabase-js";
+import { AuthError, User } from "@supabase/supabase-js";
 import {
   CarIcon,
   DollarSignIcon,
   EyeIcon,
   PlusIcon,
+  RefreshCwIcon,
   WrenchIcon,
 } from "lucide-react";
 import Layout from "@/components/Layout";
-import {
-  getTotalServiceStats,
-  getVehicles,
-  getVehicleServices,
-} from "@/utils/db";
+import { getVehicles, getVehicleServices } from "@/utils/db";
 import { createClient } from "@/utils/supabase/component";
 import { Vehicle } from "@/types/vehicle";
 
-interface VehicleStats {
-  totalCost: number;
+interface ServiceStats {
+  totalServicesCost: number;
   totalServices: number;
+}
+
+interface VehicleStats {
+  vehicleTotalCost: number;
+  vehicleServiceCount: number;
 }
 
 export default function Home() {
@@ -32,105 +34,182 @@ export default function Home() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const [loading, setLoading] = useState(true);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [vehicleStatsMap, setVehicleStatsMap] = useState<
-    Map<string, VehicleStats>
-  >(new Map());
-  const [totalServiceCost, setTotalServiceCost] = useState<number>(0);
-  const [totalServices, setTotalServices] = useState<number>(0);
-
-  const getTotalServiceCostPerVehicle = async (vehicleId: string) => {
-    const services = await getVehicleServices(vehicleId);
-    return services.reduce((total, service) => total + service.cost, 0);
-  };
-
-  const getTotalServicesPerVehicle = async (vehicleId: string) => {
-    const services = await getVehicleServices(vehicleId);
-    return services.length;
-  };
+  const [serviceStatsMap, setServiceStatsMap] = useState<ServiceStats | null>(
+    null,
+  );
+  const [vehicleStats, setVehicleStats] = useState<
+    Record<string, VehicleStats>
+  >({});
 
   useEffect(() => {
-    const fetchData = async () => {
-      const getUser = async () => {
-        try {
-          if (!supabase.auth)
-            throw new Error("Supabase client is not initialized");
+    let isMounted = true;
 
-          const { data: sessionData, error: sessionError } =
-            await supabase.auth.getSession();
-          if (sessionError || !sessionData.session) {
-            console.error("Session error:", sessionError);
-            return null;
-          }
+    const getUser = async () => {
+      try {
+        if (!supabase.auth)
+          throw new Error("Supabase client is not initialized");
 
-          const { data, error } = await supabase.auth.getUser();
-          if (error || !data?.user) {
-            console.error("Get user error:", error);
-            return null;
-          }
-
-          return data.user;
-        } catch (error) {
-          console.error("Failed to get user:", error);
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) {
+          console.error("Session error:", sessionError);
           return null;
         }
-      };
 
-      const checkAuth = async () => {
-        const fetchedUser = await getUser();
-
-        setUser(fetchedUser);
-      };
-
-      try {
-        checkAuth();
-
-        const vehiclesData = await getVehicles();
-        const { totalServiceCost, totalServices } =
-          await getTotalServiceStats();
-        setTotalServiceCost(totalServiceCost);
-        setTotalServices(totalServices);
-
-        // Store stats for each vehicle in a Map
-        const vehicleStatsMap = new Map();
-        for (const vehicle of vehiclesData) {
-          const totalCost = await getTotalServiceCostPerVehicle(vehicle.id);
-          const totalServices = await getTotalServicesPerVehicle(vehicle.id);
-          vehicleStatsMap.set(vehicle.id, { totalCost, totalServices });
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data?.user) {
+          console.error("Get user error:", error);
+          return null;
         }
-        setVehicleStatsMap(vehicleStatsMap);
-        setVehicles(vehiclesData);
+
+        return data.user;
       } catch (error) {
-        console.error("Failed to fetch data:", error);
-        setError(
-          "Failed to load data. Please check your internet connection and try again. Error: " +
-            error,
-        );
-        if (!user) {
-          router.push("/auth");
-        }
-      } finally {
-        setLoading(false);
+        console.error("Failed to get user:", error);
+        return null;
       }
     };
 
-    fetchData();
-  }, [router, user, supabase.auth]);
+    const checkAuth = async () => {
+      try {
+        const fetchedUser = await getUser();
+        if (isMounted) {
+          setUser(fetchedUser);
+        }
+      } catch (error) {
+        console.error("Authentication error:", error);
+        if (isMounted) {
+          setError("Authentication failed. Please try again.");
+        }
+      }
+    };
+
+    checkAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
+  const fetchVehicleData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      setLoading(true);
+      setVehiclesLoading(true);
+      setServicesLoading(true);
+      setError(null);
+
+      const vehiclesData = await getVehicles();
+
+      setVehicles(vehiclesData);
+
+      // Fetch service data for all vehicles efficiently
+      const vehicleStatsObject: Record<string, VehicleStats> = {};
+      let totalCost = 0;
+      let totalServiceCount = 0;
+
+      // Use Promise.all to fetch all vehicle services in parallel
+      const servicesPromises = vehiclesData.map((vehicle) =>
+        getVehicleServices(vehicle.id),
+      );
+      const allVehicleServices = await Promise.all(servicesPromises);
+
+      // Process the results
+      vehiclesData.forEach((vehicle, index) => {
+        const services = allVehicleServices[index];
+        const vehicleTotalCost = services.reduce(
+          (sum, service) => sum + service.cost,
+          0,
+        );
+        const vehicleServiceCount = services.length;
+
+        vehicleStatsObject[vehicle.id] = {
+          vehicleTotalCost,
+          vehicleServiceCount,
+        };
+
+        totalCost += vehicleTotalCost;
+        totalServiceCount += vehicleServiceCount;
+      });
+
+      setServiceStatsMap({
+        totalServicesCost: totalCost,
+        totalServices: totalServiceCount,
+      });
+      setServicesLoading(false);
+
+      setVehicleStats(vehicleStatsObject);
+      if (vehiclesData.length > 0) {
+        setSelectedVehicle(vehiclesData[0]);
+      } else {
+        setSelectedVehicle(null);
+      }
+      setVehiclesLoading(false);
+
+      return true;
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+      if (error instanceof Error && error.name === "NetworkError") {
+        setError("Network error. Please check your internet connection.");
+      } else if (error instanceof Error && error.name === "AuthError") {
+        setError("Authentication error. Please log in again.");
+        router.push("/auth");
+      } else {
+        setError(
+          `Failed to load data: ${(error as Error)?.message || "Unknown error"}`,
+        );
+      }
+
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [user]); // State setters are stable and don't need to be dependencies
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeData = async () => {
+      if (isMounted) {
+        await fetchVehicleData();
+      }
+    };
+
+    initializeData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    try {
-      const vehicleId = e.target.value;
-      const vehicle = vehicles.find((v) => v.id === vehicleId) || null;
-      setSelectedVehicle(vehicle);
-    } catch (error) {
-      console.error("Failed to change vehicle:", error);
-      setError("Failed to change vehicle. Please try again.");
-    }
+    const vehicle = vehicles.find((v) => v.id === e.target.value) || null;
+    setSelectedVehicle(vehicle);
   };
 
-  if (error) return <p className="text-center text-error mt-10">{error}</p>;
+  const refreshData = useCallback(async () => {
+    await fetchVehicleData();
+  }, [fetchVehicleData]);
 
-  if (loading)
+  if (error)
+    return (
+      <div className="text-center mt-10">
+        <p className="text-error mb-4">{error}</p>
+        <button
+          onClick={refreshData}
+          aria-label="Refresh data"
+          className="px-4 py-2 bg-primary text-white rounded-md"
+        >
+          <RefreshCwIcon className="w-5 h-5" />
+          Refresh
+        </button>
+      </div>
+    );
+
+  if (loading && !user)
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
@@ -181,72 +260,107 @@ export default function Home() {
               href="/vehicles"
               className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
             >
-              <EyeIcon className="w-4 h-4 mr-1" /> View Vehicles
+              <EyeIcon className="w-4 h-4 mr-1" aria-label="View Vehicles" />{" "}
+              View Vehicles
             </Link>
             <Link
               href="/vehicles/add"
               className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
             >
-              <PlusIcon className="w-4 h-4 mr-1" /> Add Vehicle
+              <PlusIcon className="w-4 h-4 mr-1" aria-label="Add Vehicle" /> Add
+              Vehicle
             </Link>
           </div>
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-          <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
-            <CarIcon className="w-6 h-6 mb-2" />
-            <p className="text-xl font-bold">{vehicles.length}</p>
-            <p className="text-background">Total Vehicles</p>
+        {!servicesLoading && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+            <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
+              <CarIcon className="w-6 h-6 mb-2" aria-label="Total Vehicles" />
+              <p className="text-xl font-bold">{vehicles.length}</p>
+              <p className="text-background">Total Vehicles</p>
+            </div>
+            <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
+              <DollarSignIcon
+                className="w-6 h-6 mb-2"
+                aria-label="Total Service Cost"
+              />
+              <p className="text-xl font-bold">
+                ${serviceStatsMap?.totalServicesCost.toFixed(2)}
+              </p>
+              <p className="text-background">Total Service Cost</p>
+            </div>
+            <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
+              <WrenchIcon
+                className="w-6 h-6 mb-2"
+                aria-label="Total Services"
+              />
+              <p className="text-xl font-bold">
+                {serviceStatsMap?.totalServices}
+              </p>
+              <p className="text-background">Total Services</p>
+            </div>
           </div>
-          <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
-            <DollarSignIcon className="w-6 h-6 mb-2" />
-            <p className="text-xl font-bold">${totalServiceCost.toFixed(2)}</p>
-            <p className="text-background">Total Service Cost</p>
-          </div>
-          <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
-            <WrenchIcon className="w-6 h-6 mb-2" />
-            <p className="text-xl font-bold">{totalServices}</p>
-            <p className="text-background">Total Services</p>
-          </div>
-        </div>
+        )}
 
         {/* Vehicle Selection */}
-        <div className="mt-4">
-          <label className="block text-lg font-bold text-neutral-800 mb-2">
-            Select Vehicle:
-          </label>
-          <select
-            onChange={handleVehicleChange}
-            className="border border-neutral-400 p-2 w-full rounded-md bg-background text-neutral-800"
-          >
-            <option value=""> Select a vehicle</option>
-            {vehicles.map((vehicle) => (
-              <option key={vehicle.id} value={vehicle.id}>
-                {vehicle.make} {vehicle.model} ({vehicle.year}) -{" "}
-                {vehicle.nickname}
-              </option>
-            ))}
-          </select>
-        </div>
+        {!vehiclesLoading && (
+          <div className="mt-4">
+            <label className="block text-lg font-bold text-neutral-800 mb-2">
+              Select Vehicle:
+            </label>
+            {vehicles.length === 0 ? (
+              <p className="text-neutral-500 italic">
+                No vehicles available. Add a vehicle to get started.
+              </p>
+            ) : (
+              <select
+                id="vehicle-select"
+                value={selectedVehicle?.id || ""}
+                onChange={handleVehicleChange}
+                className="border border-neutral-400 p-2 w-full rounded-md bg-background text-neutral-800"
+                aria-label="Select a vehicle"
+              >
+                <option value=""> Select a vehicle</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.make} {vehicle.model} ({vehicle.year}) -{" "}
+                    {vehicle.nickname}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
 
-        {selectedVehicle && (
+        {!vehiclesLoading && selectedVehicle && (
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
               <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
-                <DollarSignIcon className="w-6 h-6 mb-2" />
+                <DollarSignIcon
+                  className="w-6 h-6 mb-2"
+                  aria-label="Total Service Cost"
+                />
                 <p className="text-xl font-bold">
                   $
-                  {vehicleStatsMap
-                    .get(selectedVehicle.id)
-                    ?.totalCost.toFixed(2)}
+                  {vehicleStats[selectedVehicle.id]
+                    ? vehicleStats[
+                        selectedVehicle.id
+                      ]?.vehicleTotalCost.toFixed(2)
+                    : "0.00"}
                 </p>
                 <p className="text-background">Total Service Cost</p>
               </div>
               <div className="bg-green-700 p-4 rounded-lg text-center text-background flex flex-col items-center">
-                <WrenchIcon className="w-6 h-6 mb-2" />
+                <WrenchIcon
+                  className="w-6 h-6 mb-2"
+                  aria-label="Total Services"
+                />
                 <p className="text-xl font-bold">
-                  {vehicleStatsMap.get(selectedVehicle.id)?.totalServices}
+                  {vehicleStats[selectedVehicle.id]
+                    ? vehicleStats[selectedVehicle.id]?.vehicleServiceCount
+                    : 0}
                 </p>
                 <p className="text-background">Total Services</p>
               </div>
