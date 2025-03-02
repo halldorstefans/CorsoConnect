@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "./Navbar";
+import SyncStatus from "./SyncStatus";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -33,7 +34,14 @@ const Layout: React.FC<LayoutProps> = ({ children, requireAuth = true }) => {
   return (
     <div className="min-h-screen bg-background text-neutral-600">
       <Navbar />
-      <main className="max-w-7xl mx-auto pt-20 p-6">{children}</main>
+      <main className="max-w-7xl mx-auto pt-20 p-6">
+        {user && (
+          <div className="fixed bottom-4 right-4 z-40">
+            <SyncStatus />
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 };

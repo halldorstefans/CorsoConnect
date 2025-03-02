@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import type { AppProps } from "next/app";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { setupRealtimeSync } from "@/utils/db";
+import { setupConnectionHandlers, setupRealtimeSync } from "@/utils/db";
 import "@/styles/globals.css";
 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
-    setupRealtimeSync();
+    // Set up realtime sync and connection handlers
+    const realtimeSyncCleanup = setupRealtimeSync();
+    const connectionHandlersCleanup = setupConnectionHandlers();
 
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
@@ -18,6 +20,12 @@ export default function App({ Component, pageProps }: AppProps) {
           console.error("Service Worker registration failed", error);
         });
     }
+
+    // Clean up on unmount
+    return () => {
+      if (realtimeSyncCleanup) realtimeSyncCleanup();
+      if (connectionHandlersCleanup) connectionHandlersCleanup();
+    };
   }, []);
 
   return (
