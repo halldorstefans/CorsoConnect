@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { AuthError, User } from "@supabase/supabase-js";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   CarIcon,
   DollarSignIcon,
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { getVehicles, getVehicleServices } from "@/utils/db";
-import { createClient } from "@/utils/supabase/component";
 import { Vehicle } from "@/types/vehicle";
 
 interface ServiceStats {
@@ -28,12 +27,10 @@ interface VehicleStats {
 
 export default function Home() {
   const router = useRouter();
-  const supabase = createClient();
+  const { user, isLoading } = useAuth();
 
-  const [user, setUser] = useState<User | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
-  const [loading, setLoading] = useState(true);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,60 +41,10 @@ export default function Home() {
     Record<string, VehicleStats>
   >({});
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const getUser = async () => {
-      try {
-        if (!supabase.auth)
-          throw new Error("Supabase client is not initialized");
-
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) {
-          console.error("Session error:", sessionError);
-          return null;
-        }
-
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data?.user) {
-          console.error("Get user error:", error);
-          return null;
-        }
-
-        return data.user;
-      } catch (error) {
-        console.error("Failed to get user:", error);
-        return null;
-      }
-    };
-
-    const checkAuth = async () => {
-      try {
-        const fetchedUser = await getUser();
-        if (isMounted) {
-          setUser(fetchedUser);
-        }
-      } catch (error) {
-        console.error("Authentication error:", error);
-        if (isMounted) {
-          setError("Authentication failed. Please try again.");
-        }
-      }
-    };
-
-    checkAuth();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
   const fetchVehicleData = useCallback(async () => {
     if (!user) return;
 
     try {
-      setLoading(true);
       setVehiclesLoading(true);
       setServicesLoading(true);
       setError(null);
@@ -165,25 +112,16 @@ export default function Home() {
 
       return false;
     } finally {
-      setLoading(false);
+      setVehiclesLoading(false);
+      setServicesLoading(false);
     }
-  }, [user]); // State setters are stable and don't need to be dependencies
+  }, [user, router]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const initializeData = async () => {
-      if (isMounted) {
-        await fetchVehicleData();
-      }
-    };
-
-    initializeData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [user]);
+    if (user) {
+      fetchVehicleData();
+    }
+  }, [user, fetchVehicleData]);
 
   const handleVehicleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const vehicle = vehicles.find((v) => v.id === e.target.value) || null;
@@ -209,14 +147,14 @@ export default function Home() {
       </div>
     );
 
-  if (loading && !user)
+  if (isLoading && !user)
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
       </div>
     );
 
-  if (!loading && !user)
+  if (!isLoading && !user)
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-text-primary">
         <h1 className="text-center text-3xl font-bold mb-2">

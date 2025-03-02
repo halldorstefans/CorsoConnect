@@ -1,28 +1,37 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/utils/supabase/component";
 
 const AuthForm: React.FC = () => {
   const router = useRouter();
   const supabase = createClient();
+  const { refreshUser } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
     try {
       if (isLogin) {
         await logIn();
       } else {
         await signUp();
       }
+
+      await refreshUser();
+
       router.push("/");
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
