@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Car, Trash2 } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 import { deleteVehicle, getVehicles } from "@/utils/db";
 import { AuthError, DatabaseError, NetworkError } from "@/types/errors";
 import { Vehicle } from "@/types/vehicle";
@@ -105,6 +106,11 @@ const VehicleList = () => {
                   <strong>Registration number:</strong>{" "}
                   {vehicle.registration_number}
                 </p>
+                {vehicle.purchase_date && (
+                  <p className="text-sm text-neutral-600">
+                    Purchased: {formatDate(vehicle.purchase_date)}
+                  </p>
+                )}
                 <div className="flex justify-end items-center">
                   <Link
                     href={`/vehicles/${vehicle.id}`}

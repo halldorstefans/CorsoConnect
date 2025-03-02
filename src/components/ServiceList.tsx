@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Trash2, Wrench } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
+import { formatDate } from "@/utils/dateUtils";
 import { deleteService, saveService } from "@/utils/db";
 import { Service } from "@/types/service";
 import { Vehicle } from "@/types/vehicle";
@@ -122,8 +123,7 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
                   <p>
-                    <strong>Date:</strong>{" "}
-                    {new Date(service.date).toLocaleDateString()}
+                    <strong>Date:</strong> {formatDate(service.date)}
                   </p>
                   <p>
                     <strong>Cost:</strong> ${service.cost.toFixed(2)}

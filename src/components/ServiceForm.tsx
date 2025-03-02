@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { format } from "date-fns";
 import { getInputClassName, validationRules } from "@/utils/validation";
 import { Service } from "@/types/service";
 
@@ -10,6 +11,11 @@ interface ServiceFormProps {
 
 const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSave }) => {
   const [error, setError] = useState<string | null>(null);
+
+  // Format date for the form input (YYYY-MM-DD)
+  const formatDateForInput = (date: Date) => {
+    return format(new Date(date), "yyyy-MM-dd");
+  };
 
   const {
     register,
@@ -55,12 +61,20 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSave }) => {
     <form onSubmit={handleSubmit(onSubmit)}>
       <div>
         <label className="block text-lg font-bold text-neutral-800">
-          Date:
+          Service Date:
         </label>
         <input
           type="date"
           className={getInputClassName(errors.date)}
-          {...register("date", validationRules.service.date)}
+          defaultValue={
+            service
+              ? formatDateForInput(service.date)
+              : formatDateForInput(new Date())
+          }
+          {...register("date", {
+            ...validationRules.service.date,
+            setValueAs: (value) => new Date(value),
+          })}
         />
         {errors.date && (
           <p className="text-error text-sm">{errors.date.message}</p>

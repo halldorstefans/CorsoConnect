@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
+import { format } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
 import { saveVehicle } from "@/utils/db";
 import { getInputClassName, validationRules } from "@/utils/validation";
@@ -45,6 +46,12 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
       user_id: userId,
     },
   });
+
+  // Format date for the form input (YYYY-MM-DD)
+  const formatDateForInput = (date: Date | undefined) => {
+    if (!date) return "";
+    return format(new Date(date), "yyyy-MM-dd");
+  };
 
   const onSubmit = async (data: Vehicle) => {
     setIsSubmitting(true);
@@ -230,7 +237,14 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
             id="purchase_date"
             type="date"
             className={getInputClassName(errors.purchase_date)}
-            {...register("purchase_date")}
+            defaultValue={
+              vehicle?.purchase_date
+                ? formatDateForInput(vehicle.purchase_date)
+                : ""
+            }
+            {...register("purchase_date", {
+              setValueAs: (value) => (value ? new Date(value) : undefined),
+            })}
           />
         </div>
 
