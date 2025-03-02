@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter } from "next/router";
 import { Session, User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/component";
@@ -24,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   // Function to fetch user data
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -60,10 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supabase.auth]);
 
   // Sign out function
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -76,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Sign out error:", err);
       setError((err as Error).message);
     }
-  };
+  }, [supabase.auth, router]);
 
   // Function to manually refresh user data
   const refreshUser = async () => {
@@ -109,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserData, supabase.auth]);
 
   const value = {
     user,

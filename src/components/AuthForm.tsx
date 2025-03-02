@@ -74,6 +74,7 @@ const AuthForm: React.FC = () => {
           className="w-full p-2 border rounded"
           required
           aria-label="Email"
+          disabled={isSubmitting}
         />
         <label htmlFor="password">Password:</label>
         <input
@@ -84,17 +85,22 @@ const AuthForm: React.FC = () => {
           className="w-full p-2 border rounded"
           required
           aria-label="Password"
+          disabled={isSubmitting}
         />
         <button
           type="submit"
-          className="bg-primary text-background w-full my-4 rounded-lg hover:bg-primary-hover transition"
+          disabled={isSubmitting}
+          className={`bg-primary text-background w-full p-2 my-4 rounded-lg hover:bg-primary-hover transition ${
+            isSubmitting ? "opacity-70 cursor-not-allowed" : ""
+          }`}
         >
-          {isLogin ? "Log In" : "Sign Up"}
+          {isSubmitting ? "Processing..." : isLogin ? "Log In" : "Sign Up"}
         </button>
       </form>
       <button
         onClick={() => setIsLogin(!isLogin)}
         className="w-full text-primary hover:underline mt-4"
+        disabled={isSubmitting}
       >
         {isLogin
           ? "Don't have an account? Sign Up"
