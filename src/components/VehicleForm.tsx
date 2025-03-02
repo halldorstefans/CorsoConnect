@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { v4 as uuidv4 } from "uuid";
 import { saveVehicle } from "@/utils/db";
+import { getInputClassName, validationRules } from "@/utils/validation";
 import {
   AuthError,
   DatabaseError,
@@ -18,88 +20,61 @@ interface Props {
 }
 
 const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
-  const [formData, setFormData] = useState<Vehicle>(
-    vehicle || {
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<Vehicle>({
+    defaultValues: vehicle || {
       id: "",
       make: "",
       model: "",
-      year: 0,
+      year: new Date().getFullYear(),
       nickname: "",
       vin: "",
       colour: "",
       registration_number: "",
       purchase_price: 0,
       odometer_reading: 0,
+      odometer_unit: "miles",
       updated_at: new Date(),
       created_at: new Date(),
       user_id: userId,
     },
-  );
+  });
 
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value, type } = e.target;
-    let processedValue = value;
-
-    if (type === "number") {
-      processedValue = value === "" ? "0" : value;
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "number" ? Number(processedValue) : processedValue,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: Vehicle) => {
     setIsSubmitting(true);
     setError(null);
 
     try {
-      // Validate required fields
-      if (!formData.make) {
-        throw new ValidationError("Make is required");
-      }
-      if (!formData.model) {
-        throw new ValidationError("Model is required");
-      }
-      if (
-        !formData.year ||
-        formData.year < 1900 ||
-        formData.year > new Date().getFullYear() + 1
-      ) {
-        throw new ValidationError(
-          `Year must be between 1900 and ${new Date().getFullYear() + 1}`,
-        );
-      }
+      // Prepare the data
+      const vehicleData: Vehicle = {
+        ...data,
+        id: data.id || uuidv4(),
+        user_id: userId,
+        updated_at: new Date(),
+        created_at: data.created_at || new Date(),
+      };
 
-      // Generate ID if new vehicle
-      if (!formData.id) {
-        formData.id = uuidv4();
-      }
-
-      // Ensure user_id is set
-      formData.user_id = userId;
-
-      await saveVehicle(formData);
+      // Save to database
+      await saveVehicle(vehicleData);
       onSave();
     } catch (err) {
-      console.error("Error saving vehicle:", err);
+      console.error("Failed to save vehicle:", err);
       if (err instanceof ValidationError) {
         setError(err.message);
       } else if (err instanceof NetworkError) {
         setError(
-          "Network issue. Vehicle saved locally and will sync when you're back online.",
+          "Network error. Your changes will sync when you're back online.",
         );
+      } else if (err instanceof DatabaseError) {
+        setError("Failed to save to database. Please try again.");
       } else if (err instanceof AuthError) {
         setError("Authentication error. Please sign in again.");
-      } else if (err instanceof DatabaseError) {
-        setError("Failed to save vehicle. Please try again.");
       } else {
         setError("An unexpected error occurred. Please try again.");
       }
@@ -112,14 +87,14 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
     return (
       <ErrorDisplay
         message={error}
-        details="Please check the form data and try again."
+        details="There was a problem saving your vehicle data."
         onRetry={() => setError(null)}
       />
     );
   }
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form onSubmit={handleSubmit(onSubmit)}>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-neutral-800 text-center md:text-left">
           {vehicle ? "Edit Vehicle" : "Add Vehicle"}
@@ -129,62 +104,179 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
         </Link>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[
-          ["NickName", "nickname", "NickName (e.g. Lightning McQueen)", false],
-          ["Make", "make", "Make (e.g. Toyota)", true],
-          ["Model", "model", "Model (e.g. Corolla)", true],
-          ["Year", "year", "Year", true, "number"],
-          ["VIN", "vin", "VIN (optional)", false],
-          ["Colour", "colour", "Colour (e.g. Blue)", false],
-          [
-            "Registration Number",
-            "registration_number",
-            "Registration Number (e.g. ABC-123)",
-            false,
-          ],
-          ["Purchase Date", "purchase_date", "", false, "date"],
-          [
-            "Purchase Price",
-            "purchase_price",
-            "Purchase Price",
-            false,
-            "number",
-          ],
-          [
-            "Odometer Reading",
-            "odometer_reading",
-            "Odometer Reading",
-            false,
-            "number",
-          ],
-        ].map(([label, name, placeholder, required = false, type = "text"]) => (
-          <div key={String(name)} className="space-y-2">
-            <label className="text-lg font-bold text-neutral-800">
-              {label}:
-            </label>
-            <input
-              name={String(name)}
-              type={String(type)}
-              value={formData[name as keyof Vehicle] as string | number}
-              onChange={handleChange}
-              placeholder={String(placeholder)}
-              className="border border-neutral-600 p-2 w-full rounded-md bg-background text-neutral-800"
-              required={Boolean(required)}
-            />
-          </div>
-        ))}
-        <div className="space-y-2">
+        <div>
           <label
-            className="text-lg font-bold text-neutral-800"
-            htmlFor="odometer_unit"
+            htmlFor="nickname"
+            className="block text-lg font-bold text-neutral-800"
           >
-            Select Odometer Unit:
+            Nickname
+          </label>
+          <input
+            id="nickname"
+            className={getInputClassName(errors.nickname)}
+            placeholder="NickName (e.g. Lightning McQueen)"
+            {...register("nickname")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="make"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Make
+          </label>
+          <input
+            id="make"
+            className={getInputClassName(errors.make)}
+            placeholder="Make (e.g. Toyota)"
+            {...register("make", validationRules.vehicle.make)}
+          />
+          {errors.make && (
+            <p className="text-error text-sm">{errors.make.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="model"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Model
+          </label>
+          <input
+            id="model"
+            className={getInputClassName(errors.model)}
+            placeholder="Model (e.g. Corolla)"
+            {...register("model", validationRules.vehicle.model)}
+          />
+          {errors.model && (
+            <p className="text-error text-sm">{errors.model.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="year"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Year
+          </label>
+          <input
+            id="year"
+            type="number"
+            className={getInputClassName(errors.year)}
+            placeholder="Year"
+            {...register("year", validationRules.vehicle.year)}
+          />
+          {errors.year && (
+            <p className="text-error text-sm">{errors.year.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label
+            htmlFor="vin"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            VIN
+          </label>
+          <input
+            id="vin"
+            className={getInputClassName(errors.vin)}
+            placeholder="VIN (optional)"
+            {...register("vin")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="colour"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Colour
+          </label>
+          <input
+            id="colour"
+            className={getInputClassName(errors.colour)}
+            placeholder="Colour (e.g. Blue)"
+            {...register("colour")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="registration_number"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Registration Number
+          </label>
+          <input
+            id="registration_number"
+            className={getInputClassName(errors.registration_number)}
+            placeholder="Registration Number (e.g. ABC-123)"
+            {...register("registration_number")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="purchase_date"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Purchase Date
+          </label>
+          <input
+            id="purchase_date"
+            type="date"
+            className={getInputClassName(errors.purchase_date)}
+            {...register("purchase_date")}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="purchase_price"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Purchase Price
+          </label>
+          <input
+            id="purchase_price"
+            type="number"
+            className={getInputClassName(errors.purchase_price)}
+            placeholder="Purchase Price"
+            {...register("purchase_price", { valueAsNumber: true })}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="odometer_reading"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Odometer Reading
+          </label>
+          <input
+            id="odometer_reading"
+            type="number"
+            className={getInputClassName(errors.odometer_reading)}
+            placeholder="Odometer Reading"
+            {...register("odometer_reading", { valueAsNumber: true })}
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="odometer_unit"
+            className="block text-lg font-bold text-neutral-800"
+          >
+            Odometer Unit
           </label>
           <select
-            name="odometer_unit"
-            value={formData.odometer_unit}
-            onChange={handleChange}
-            className="border border-neutral-600 p-2 w-full rounded-md bg-background text-neutral-800"
+            id="odometer_unit"
+            className={getInputClassName(errors.odometer_unit)}
+            {...register("odometer_unit")}
           >
             <option value="miles">Miles</option>
             <option value="km">Kilometers</option>
