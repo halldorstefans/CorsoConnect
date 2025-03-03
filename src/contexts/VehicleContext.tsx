@@ -407,27 +407,6 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
     updateVehicleStats();
   }, [updateVehicleStats]);
 
-  // Update service stats when selected vehicle changes
-  const updateServiceStats = useCallback(() => {
-    if (selectedVehicle && services.length > 0) {
-      const vehicleServices = services.filter(
-        (service) => service.vehicle_id === selectedVehicle.id,
-      );
-      const stats = {
-        totalServicesCost: vehicleServices.reduce(
-          (sum, service) => sum + service.cost,
-          0,
-        ),
-        totalServices: vehicleServices.length,
-      };
-      setServiceStats(stats);
-    }
-  }, [selectedVehicle, services]);
-
-  useEffect(() => {
-    updateServiceStats();
-  }, [updateServiceStats]);
-
   return (
     <VehicleContext.Provider value={value}>{children}</VehicleContext.Provider>
   );
