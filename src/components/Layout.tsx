@@ -22,11 +22,14 @@ const Layout: React.FC<LayoutProps> = ({
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && requireAuth && !user) {
+    if (!isLoading && requireAuth && !user && !isRedirecting) {
       setIsRedirecting(true);
       router.push("/auth");
     }
-  }, [isLoading, requireAuth, user, router]);
+    if (user && isRedirecting) {
+      setIsRedirecting(false);
+    }
+  }, [isLoading, requireAuth, user, router, isRedirecting]);
 
   if (isLoading || isRedirecting) {
     return (

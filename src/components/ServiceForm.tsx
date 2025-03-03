@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Service } from "@/types/service";
+import ErrorDisplay from "./ErrorDisplay";
 
 interface ServiceFormProps {
   service?: Service;
@@ -58,25 +59,29 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     }
   };
 
-  if (error)
+  if (error) {
     return (
-      <div className="text-center text-error mt-10">
-        <p>{error}</p>
-        <p className="text-sm text-neutral-800">
-          Whoa! What happened there? Check your network connection or try again
-          later.
-        </p>
-      </div>
+      <ErrorDisplay
+        message={error}
+        details="There was a problem saving your service data."
+        onRetry={() => setError(null)}
+      />
     );
+  }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h2
-        id="service-form-title"
-        className="text-xl font-bold text-neutral-800 mb-4"
-      >
-        {service ? "Edit Service Record" : "Add Service Record"}
-      </h2>
+    <form
+      onSubmit={handleSubmit}
+      className="bg-background-card border-neutral-300 p-4 shadow-md rounded-lg"
+    >
+      <div className="flex justify-between items-center">
+        <h1
+          id="service-form-title"
+          className="text-xl font-bold text-neutral-800 mb-4"
+        >
+          {service ? "Edit Service Record" : "Add Service Record"}
+        </h1>
+      </div>
 
       {error && (
         <p className="text-error" role="alert">

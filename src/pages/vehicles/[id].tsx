@@ -134,10 +134,26 @@ const VehicleDetails = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="text-lg font-semibold text-neutral-800">
+                        Vehicle Name:
+                      </label>
+                      <p className="text-neutral-600">
+                        {selectedVehicle.nickname}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
                         License Plate:
                       </label>
                       <p className="text-neutral-600">
                         {selectedVehicle.registration_number}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        Colour:
+                      </label>
+                      <p className="text-neutral-600">
+                        {selectedVehicle.colour}
                       </p>
                     </div>
                     <div>
@@ -166,38 +182,40 @@ const VehicleDetails = () => {
                         ${selectedVehicle.purchase_price?.toFixed(2) || "N/A"}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <div>
-                      <label className="text-lg font-semibold text-neutral-800">
-                        Odometer:
-                      </label>
-                      <p className="text-neutral-600">
-                        {selectedVehicle.odometer_reading}{" "}
-                        {selectedVehicle.odometer_unit || "miles"}
-                      </p>
+
+                    <div className="flex justify-between">
+                      <div>
+                        <label className="text-lg font-semibold text-neutral-800">
+                          Odometer:
+                        </label>
+                        <p className="text-neutral-600">
+                          {selectedVehicle.odometer_reading}{" "}
+                          {selectedVehicle.odometer_unit || "miles"}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex justify-end items-center space-x-2">
-                    <button
-                      onClick={() => setShowForm(true)}
-                      disabled={vehicleLoading || showForm}
-                      className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
-                      aria-label="Edit vehicle details"
-                    >
-                      <Wrench className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
-                      Edit Vehicle
-                    </button>
+
+                    <div className="flex justify-end items-center space-x-2">
+                      <button
+                        onClick={() => setShowForm(true)}
+                        disabled={vehicleLoading || showForm}
+                        className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
+                        aria-label="Edit vehicle details"
+                      >
+                        <Wrench className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
+                        Edit Vehicle
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
                 user && (
-                <VehicleForm
-                  vehicle={selectedVehicle}
-                  userId={user.id}
-                  onSave={handleSave}
-                  onCancel={() => setShowForm(false)}
-                />
+                  <VehicleForm
+                    vehicle={selectedVehicle}
+                    userId={user.id}
+                    onSave={handleSave}
+                    onCancel={() => setShowForm(false)}
+                  />
                 )
               )}
             </div>

@@ -2,7 +2,7 @@
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open("engineer-a-car-tracker-cache").then((cache) => {
+    caches.open("corso-connect-tracker-cache").then((cache) => {
       return cache.addAll([
         "/",
         "/index.html",
@@ -25,7 +25,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  const cacheWhitelist = ["engineer-a-car-tracker-cache"];
+  const cacheWhitelist = ["corso-connect-tracker-cache"];
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(

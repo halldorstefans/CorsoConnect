@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import Link from "next/link";
 import { useVehicles } from "@/contexts/VehicleContext";
 import { format } from "date-fns";
 import { v4 as uuidv4 } from "uuid";
@@ -206,16 +205,16 @@ const VehicleForm: React.FC<Props> = ({
 
         <div>
           <label
-            htmlFor="vin"
+            htmlFor="registration_number"
             className="block text-lg font-bold text-neutral-800"
           >
-            VIN
+            Registration Number
           </label>
           <input
-            id="vin"
-            className={getInputClassName(errors.vin)}
-            placeholder="VIN (optional)"
-            {...register("vin")}
+            id="registration_number"
+            className={getInputClassName(errors.registration_number)}
+            placeholder="Registration Number (e.g. ABC-123)"
+            {...register("registration_number")}
           />
         </div>
 
@@ -236,16 +235,16 @@ const VehicleForm: React.FC<Props> = ({
 
         <div>
           <label
-            htmlFor="registration_number"
+            htmlFor="vin"
             className="block text-lg font-bold text-neutral-800"
           >
-            Registration Number
+            VIN
           </label>
           <input
-            id="registration_number"
-            className={getInputClassName(errors.registration_number)}
-            placeholder="Registration Number (e.g. ABC-123)"
-            {...register("registration_number")}
+            id="vin"
+            className={getInputClassName(errors.vin)}
+            placeholder="VIN (optional)"
+            {...register("vin")}
           />
         </div>
 
