@@ -1,28 +1,21 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { format } from "date-fns";
-import { getInputClassName, validationRules } from "@/utils/validation";
 import { Service } from "@/types/service";
 
 interface ServiceFormProps {
   service?: Service;
   onSave: (service: Service) => void;
+  onCancel?: () => void;
 }
 
-const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSave }) => {
+const ServiceForm: React.FC<ServiceFormProps> = ({
+  service,
+  onSave,
+  onCancel,
+}) => {
   const [error, setError] = useState<string | null>(null);
 
-  // Format date for the form input (YYYY-MM-DD)
-  const formatDateForInput = (date: Date) => {
-    return format(new Date(date), "yyyy-MM-dd");
-  };
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<Service>({
-    defaultValues: service || {
+  const [formData, setFormData] = useState<Service>(
+    service || {
       id: "",
       vehicle_id: "",
       date: new Date(),
@@ -34,12 +27,31 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSave }) => {
       created_at: new Date(),
       user_id: "",
     },
-  });
+  );
 
-  const onSubmit = (data: Service) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "cost" ? parseFloat(value) || 0 : value,
+    }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (formData.cost < 0) {
+      setError("Please enter a positive number.");
+      return;
+    }
     setError(null);
+
     try {
-      onSave(data);
+      onSave(formData);
     } catch (err) {
       setError("Failed to save service. Please try again.");
       console.error("Service save error:", err);
@@ -58,100 +70,122 @@ const ServiceForm: React.FC<ServiceFormProps> = ({ service, onSave }) => {
     );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit}>
+      <h2
+        id="service-form-title"
+        className="text-xl font-bold text-neutral-800 mb-4"
+      >
+        {service ? "Edit Service Record" : "Add Service Record"}
+      </h2>
+
+      {error && (
+        <p className="text-error" role="alert">
+          {error}
+        </p>
+      )}
       <div>
-        <label className="block text-lg font-bold text-neutral-800">
-          Service Date:
+        <label
+          htmlFor="date"
+          className="block text-lg font-bold text-neutral-800"
+        >
+          Date:
         </label>
         <input
+          id="date"
           type="date"
-          className={getInputClassName(errors.date)}
-          defaultValue={
-            service
-              ? formatDateForInput(service.date)
-              : formatDateForInput(new Date())
-          }
-          {...register("date", {
-            ...validationRules.service.date,
-            setValueAs: (value) => new Date(value),
-          })}
+          name="date"
+          value={new Date(formData.date).toISOString().split("T")[0]}
+          onChange={handleChange}
+          className="border border-neutral-600 p-2 w-full rounded-md bg-background-card text-neutral-800"
+          required
         />
-        {errors.date && (
-          <p className="text-error text-sm">{errors.date.message}</p>
-        )}
       </div>
-
       <div>
-        <label className="block text-lg font-bold text-neutral-800">
+        <label
+          htmlFor="description"
+          className="block text-lg font-bold text-neutral-800"
+        >
           Description:
         </label>
         <textarea
-          className={getInputClassName(errors.description)}
-          {...register("description", validationRules.service.description)}
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          className="border border-neutral-600 p-2 w-full rounded-md bg-background-card text-neutral-800"
+          required
         />
-        {errors.description && (
-          <p className="text-error text-sm">{errors.description.message}</p>
-        )}
       </div>
-
       <div>
-        <label className="block text-lg font-bold text-neutral-800">
+        <label
+          htmlFor="cost"
+          className="block text-lg font-bold text-neutral-800"
+        >
           Cost:
         </label>
         <input
+          id="cost"
           type="number"
-          step="0.01"
-          className={getInputClassName(errors.cost)}
-          {...register("cost", validationRules.service.cost)}
+          name="cost"
+          value={formData.cost}
+          onChange={handleChange}
+          className="border border-neutral-600 p-2 w-full rounded-md bg-background-card text-neutral-800"
+          required
         />
-        {errors.cost && (
-          <p className="text-error text-sm">{errors.cost.message}</p>
-        )}
       </div>
-
       <div>
-        <label className="block text-lg font-bold text-neutral-800">
+        <label
+          htmlFor="service_type"
+          className="block text-lg font-bold text-neutral-800"
+        >
           Service Type:
         </label>
         <select
-          className={getInputClassName(errors.service_type)}
-          {...register("service_type", validationRules.service.service_type)}
+          id="service_type"
+          name="service_type"
+          value={formData.service_type}
+          onChange={handleChange}
+          className="border border-neutral-600 p-2 w-full rounded-md bg-background-card text-neutral-800"
+          required
         >
-          <option value="maintenance">Maintenance</option>
           <option value="repair">Repair</option>
+          <option value="maintenance">Maintenance</option>
           <option value="restoration">Restoration</option>
           <option value="modification">Modification</option>
         </select>
-        {errors.service_type && (
-          <p className="text-error text-sm">{errors.service_type.message}</p>
-        )}
       </div>
-
       <div>
-        <label className="block text-lg font-bold text-neutral-800">
+        <label
+          htmlFor="odometer_reading"
+          className="block text-lg font-bold text-neutral-800"
+        >
           Odometer Reading:
         </label>
         <input
+          id="odometer_reading"
           type="number"
-          className={`border p-2 w-full rounded-md bg-background-card text-neutral-800 ${errors.odometer_reading ? "border-error" : "border-neutral-600"}`}
-          {...register(
-            "odometer_reading",
-            validationRules.service.odometer_reading,
-          )}
+          name="odometer_reading"
+          value={formData.odometer_reading}
+          onChange={handleChange}
+          className="border border-neutral-600 p-2 w-full rounded-md bg-background-card text-neutral-800"
+          required
         />
-        {errors.odometer_reading && (
-          <p className="text-error text-sm">
-            {errors.odometer_reading.message}
-          </p>
-        )}
       </div>
-
-      <button
-        type="submit"
-        className="bg-primary text-background-card w-full my-4 rounded-lg hover:bg-primary-hover transition"
-      >
-        {service ? "Save Service" : "Add Service"}
-      </button>
+      <div className="flex gap-4 mt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 p-2 bg-neutral-200 text-neutral-800 rounded-lg hover:bg-neutral-300 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="bg-primary hover:bg-primary-hover transition flex-1 p-2 rounded-lg text-background-card transition"
+        >
+          {service ? "Save Service" : "Add Service"}
+        </button>
+      </div>
     </form>
   );
 };

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useVehicles } from "@/contexts/VehicleContext";
-import { Trash2, Wrench } from "lucide-react";
+import { Plus, Trash2, Wrench } from "lucide-react";
 import { v4 as uuidv4 } from "uuid";
 import { formatDate } from "@/utils/dateUtils";
 import { Service } from "@/types/service";
@@ -81,9 +81,12 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
   };
 
   return (
-    <div className="mt-6 bg-background-card p-6 shadow-lg rounded-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-neutral-800 text-center md:text-left">
+    <div className="mt-8">
+      <div className="flex items-center mb-4">
+        <h2
+          id="service-history-heading"
+          className="text-2xl font-bold text-neutral-800 px-4 py-2"
+        >
           Service History
         </h2>
         <button
@@ -93,18 +96,26 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
           }}
           className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
           disabled={isSubmitting || servicesLoading}
+          aria-busy={isSubmitting || servicesLoading ? "true" : "false"}
         >
-          <Wrench className="w-4 h-4 mr-1" /> Add Service
+          <Plus className="w-4 h-4 mr-1" aria-hidden="true" /> Add Service
         </button>
       </div>
 
       {showForm ? (
-        <ServiceForm service={service || undefined} onSave={handleAddService} />
+        <ServiceForm
+          service={service || undefined}
+          onSave={handleAddService}
+          onCancel={() => setShowForm(false)}
+        />
       ) : (
         <>
           {servicesLoading && (
-            <div className="text-center py-4">
-              <div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-primary"></div>
+            <div className="text-center py-4" role="status" aria-live="polite">
+              <div
+                className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-primary"
+                aria-hidden="true"
+              ></div>
               <span className="ml-2">Loading services...</span>
             </div>
           )}
@@ -114,7 +125,10 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
               No service records found for this vehicle.
             </p>
           ) : (
-            <div className="space-y-4">
+            <div
+              className="space-y-4"
+              aria-labelledby="service-history-heading"
+            >
               {services
                 .sort(
                   (a, b) =>
@@ -123,7 +137,7 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
                 .map((service) => (
                   <div
                     key={service.id}
-                    className="border border-neutral-300 p-4 rounded-lg"
+                    className="bg-background-card border border-neutral-300 p-4 rounded-lg shadow-md hover:shadow-lg transition"
                   >
                     <div className="flex justify-between items-start">
                       <div>
@@ -134,28 +148,33 @@ const ServiceHistory: React.FC<ServiceHistoryProps> = ({
                           {formatDate(service.date)} | {service.service_type} |
                           ${service.cost.toFixed(2)}
                         </div>
-                        {service.odometer_reading &&
-                          service.odometer_reading > 0 && (
+                        {service.odometer_reading !== undefined &&
+                          service.odometer_reading !== null &&
+                          service.odometer_reading !== 0 && (
                             <div className="text-sm text-neutral-600">
                               Odometer: {service.odometer_reading}{" "}
                               {vehicle.odometer_unit || "miles"}
                             </div>
                           )}
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex justify-end items-center space-x-2">
                         <button
                           onClick={() => handleEditService(service)}
-                          className="text-primary hover:text-primary-hover"
+                          className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
                           disabled={isSubmitting || servicesLoading}
+                          aria-label={`Edit service: ${service.description}`}
                         >
-                          <Wrench className="w-4 h-4 mr-1" /> Edit
+                          <Wrench className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
+                          Edit
                         </button>
                         <button
                           onClick={() => openModal(service.id)}
-                          className="text-error hover:text-red-700"
+                          className="bg-error text-background px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
                           disabled={isSubmitting || servicesLoading}
+                          aria-label={`Delete service: ${service.description}`}
                         >
-                          <Trash2 className="w-4 h-4" /> Delete
+                          <Trash2 className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
+                          Delete
                         </button>
                       </div>
                     </div>

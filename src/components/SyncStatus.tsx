@@ -81,16 +81,32 @@ const SyncStatus: React.FC<SyncStatusProps> = ({ showDetails = false }) => {
       <div
         className="flex items-center"
         title={status.isOnline ? "Online" : "Offline"}
+        role="status"
+        aria-live="polite"
       >
         {status.isOnline ? (
           <Cloud
             className={`w-5 h-5 ${status.pendingCount > 0 ? "text-amber-500" : "text-green-500"}`}
+            aria-hidden="true"
           />
         ) : (
-          <CloudOff className="w-5 h-5 text-neutral-500" />
+          <CloudOff className="w-5 h-5 text-neutral-500" aria-hidden="true" />
         )}
+        <span className="sr-only">
+          {status.isOnline
+            ? status.pendingCount > 0
+              ? "Online with pending changes"
+              : "Online and synced"
+            : "Offline"}
+        </span>
         {status.hasErrors && (
-          <AlertTriangle className="w-5 h-5 text-error ml-1" />
+          <>
+            <AlertTriangle
+              className="w-5 h-5 text-error ml-1"
+              aria-hidden="true"
+            />
+            <span className="sr-only">Sync errors detected</span>
+          </>
         )}
       </div>
     );
@@ -98,26 +114,39 @@ const SyncStatus: React.FC<SyncStatusProps> = ({ showDetails = false }) => {
 
   // Detailed display
   return (
-    <div className="bg-background-card p-3 rounded-lg shadow-sm border border-neutral-300">
+    <div
+      className="bg-background-card p-3 rounded-lg shadow-sm border border-neutral-300"
+      role="status"
+      aria-live="polite"
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           {status.isOnline ? (
-            <Cloud
-              className={`w-5 h-5 ${status.pendingCount > 0 ? "text-amber-500" : "text-green-500"} mr-2`}
-            />
+            <>
+              <Cloud
+                className={`w-5 h-5 ${status.pendingCount > 0 ? "text-amber-500" : "text-green-500"}`}
+                aria-hidden="true"
+              />
+              <span className="ml-2">
+                {status.pendingCount > 0
+                  ? `Online (${status.pendingCount} pending)`
+                  : "Online (synced)"}
+              </span>
+            </>
           ) : (
-            <CloudOff className="w-5 h-5 text-neutral-500 mr-2" />
+            <>
+              <CloudOff
+                className="w-5 h-5 text-neutral-500"
+                aria-hidden="true"
+              />
+              <span className="ml-2">Offline</span>
+            </>
           )}
-          <span className="text-sm font-medium">
-            {status.isOnline ? "Online" : "Offline"}
-            {status.pendingCount > 0 &&
-              ` • ${status.pendingCount} pending changes`}
-          </span>
         </div>
-
         <button
           onClick={handleManualSync}
           disabled={!status.isOnline || status.isSyncing}
+          aria-busy={status.isSyncing ? "true" : "false"}
           className={`text-xs px-2 py-1 rounded ${
             !status.isOnline || status.isSyncing
               ? "bg-neutral-300 text-neutral-500 cursor-not-allowed"
@@ -129,8 +158,8 @@ const SyncStatus: React.FC<SyncStatusProps> = ({ showDetails = false }) => {
       </div>
 
       {status.hasErrors && (
-        <div className="mt-2 text-xs flex items-center text-error">
-          <AlertTriangle className="w-4 h-4 mr-1" />
+        <div className="mt-2 text-xs flex items-center text-error" role="alert">
+          <AlertTriangle className="w-4 h-4 mr-1" aria-hidden="true" />
           <span>Sync errors detected. Try manual sync.</span>
         </div>
       )}

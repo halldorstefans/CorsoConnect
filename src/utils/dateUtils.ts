@@ -22,6 +22,19 @@ export function formatDate(
   }
 }
 
+export function formatDateToISOString(date: Date | string | undefined): string {
+  if (!date) return "";
+
+  try {
+    const dateObj = typeof date === "string" ? parseISO(date) : date;
+    if (!isValid(dateObj)) return "";
+    return dateObj.toISOString().split("T")[0];
+  } catch (error) {
+    console.error("Date formatting error:", error);
+    return "";
+  }
+}
+
 /**
  * Formats a date for HTML date input (YYYY-MM-DD)
  * @param date Date object or ISO string

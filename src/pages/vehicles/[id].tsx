@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicles } from "@/contexts/VehicleContext";
+import { Wrench } from "lucide-react";
 import ErrorDisplay from "@/components/ErrorDisplay";
 import Layout from "@/components/Layout";
 import ServiceHistory from "@/components/ServiceList";
@@ -26,46 +27,52 @@ const VehicleDetails = () => {
   const [showForm, setShowForm] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
+  // Memoize the fetch conditions to prevent unnecessary re-renders
+  const shouldFetchData = useCallback(() => {
+    if (!id || typeof id !== "string" || !user || initialLoadDone) return false;
+
+    const shouldFetchVehicle = !selectedVehicle || selectedVehicle.id !== id;
+    const shouldFetchServices =
+      !services.length || services[0].vehicle_id !== id;
+
+    return { shouldFetchVehicle, shouldFetchServices };
+  }, [id, user, initialLoadDone, selectedVehicle, services]);
+
   useEffect(() => {
-    if (id && typeof id === "string" && user) {
-      if (!selectedVehicle || selectedVehicle.id !== id) {
-        fetchVehicle(id);
+    const fetchConditions = shouldFetchData();
+
+    if (fetchConditions) {
+      if (fetchConditions.shouldFetchVehicle) {
+        fetchVehicle(id as string);
       }
 
-      if (
-        services.length === 0 ||
-        (services.length > 0 && services[0].vehicle_id !== id)
-      ) {
-        fetchServices(id);
+      if (fetchConditions.shouldFetchServices) {
+        fetchServices(id as string);
       }
 
       setInitialLoadDone(true);
     }
-  }, [id, user, selectedVehicle, services, fetchVehicle, fetchServices]);
+  }, [id, user, shouldFetchData, fetchVehicle, fetchServices]);
+
+  // Reset initialLoadDone when id changes
+  useEffect(() => {
+    setInitialLoadDone(false);
+  }, [id]);
 
   const handleSave = () => {
-    setShowForm(false);
     if (id && typeof id === "string") {
       fetchVehicle(id);
       fetchServices(id);
+      setShowForm(false);
     }
   };
 
-  if ((vehicleLoading || servicesLoading) && !initialLoadDone) {
-    return (
-      <Layout>
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   if (error) {
     return (
-      <Layout>
+      <Layout title="Vehicle Details" requireAuth>
         <ErrorDisplay
           message={error}
+          details="There was a problem loading the vehicle details."
           onRetry={() => {
             clearError();
             if (id && typeof id === "string") {
@@ -79,120 +86,131 @@ const VehicleDetails = () => {
   }
 
   return (
-    <Layout>
-      <div>
-        <div className="bg-background-card p-6 shadow-lg rounded-lg">
-          {selectedVehicle && !showForm && (
+    <Layout
+      title={
+        selectedVehicle
+          ? `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`
+          : "Vehicle Details"
+      }
+      requireAuth
+    >
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-neutral-800">
+          {selectedVehicle
+            ? `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`
+            : "Vehicle Details"}
+        </h1>
+        <div className="hidden md:flex space-x-6 items-center">
+          <Link
+            href="/vehicles"
+            className="text-primary hover:underline"
+            aria-label="Back to Vehicles"
+          >
+            ← Back to Vehicles
+          </Link>
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        <div className="bg-background-card p-6 rounded-lg shadow-lg">
+          {vehicleLoading && !selectedVehicle ? (
+            <div
+              className="flex justify-center items-center h-64"
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"
+                aria-hidden="true"
+              ></div>
+              <span className="sr-only">Loading vehicle details...</span>
+            </div>
+          ) : !selectedVehicle ? (
+            <p className="text-center text-neutral-600">Vehicle not found.</p>
+          ) : (
             <div>
-              <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-neutral-800 text-center md:text-left">
-                  Vehicle Details
-                </h1>
-                <Link href="/vehicles" className="text-primary hover:underline">
-                  ← Back to Vehicles
-                </Link>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {!showForm ? (
                 <div>
-                  <h2 className="text-xl font-semibold text-neutral-800">
-                    {selectedVehicle.make} {selectedVehicle.model} (
-                    {selectedVehicle.year})
-                  </h2>
-                </div>
-                {selectedVehicle.nickname && (
-                  <div>
-                    <label className="text-lg font-semibold text-neutral-800">
-                      Nickname:
-                    </label>
-                    <p className="text-neutral-600">
-                      {selectedVehicle.nickname}
-                    </p>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  {selectedVehicle.registration_number && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="text-lg font-semibold text-neutral-800">
-                        Registration:
+                        License Plate:
                       </label>
                       <p className="text-neutral-600">
                         {selectedVehicle.registration_number}
                       </p>
                     </div>
-                  )}
-                </div>
-                <div className="flex justify-between">
-                  {selectedVehicle.vin && (
                     <div>
                       <label className="text-lg font-semibold text-neutral-800">
                         VIN:
                       </label>
                       <p className="text-neutral-600">{selectedVehicle.vin}</p>
                     </div>
-                  )}
-                </div>
-                <div className="flex justify-between">
-                  {selectedVehicle.colour && (
                     <div>
                       <label className="text-lg font-semibold text-neutral-800">
-                        Color:
+                        Purchase Date:
                       </label>
                       <p className="text-neutral-600">
-                        {selectedVehicle.colour}
+                        {selectedVehicle.purchase_date
+                          ? new Date(
+                              selectedVehicle.purchase_date,
+                            ).toLocaleDateString()
+                          : "N/A"}
                       </p>
                     </div>
-                  )}
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        Purchase Price:
+                      </label>
+                      <p className="text-neutral-600">
+                        ${selectedVehicle.purchase_price?.toFixed(2) || "N/A"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <div>
+                      <label className="text-lg font-semibold text-neutral-800">
+                        Odometer:
+                      </label>
+                      <p className="text-neutral-600">
+                        {selectedVehicle.odometer_reading}{" "}
+                        {selectedVehicle.odometer_unit || "miles"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end items-center space-x-2">
+                    <button
+                      onClick={() => setShowForm(true)}
+                      disabled={vehicleLoading || showForm}
+                      className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
+                      aria-label="Edit vehicle details"
+                    >
+                      <Wrench className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
+                      Edit Vehicle
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  {selectedVehicle.purchase_price !== undefined &&
-                    selectedVehicle.purchase_price !== null &&
-                    selectedVehicle.purchase_price !== 0 && (
-                      <div>
-                        <label className="text-lg font-semibold text-neutral-800">
-                          Purchase Price:
-                        </label>
-                        <p className="text-neutral-600">
-                          ${selectedVehicle.purchase_price.toFixed(2)}
-                        </p>
-                      </div>
-                    )}
-                </div>
-                <div className="flex justify-between">
-                  {selectedVehicle.odometer_reading !== undefined &&
-                    selectedVehicle.odometer_reading !== null &&
-                    selectedVehicle.odometer_reading !== 0 && (
-                      <div>
-                        <label className="text-lg font-semibold text-neutral-800">
-                          Odometer:
-                        </label>
-                        <p className="text-neutral-600">
-                          {selectedVehicle.odometer_reading}{" "}
-                          {selectedVehicle.odometer_unit || "miles"}
-                        </p>
-                      </div>
-                    )}
-                </div>
-              </div>
-              <button
-                onClick={() => setShowForm(true)}
-                className="bg-primary text-background w-full my-4 rounded-lg hover:bg-primary-hover transition p-2"
-              >
-                Edit Vehicle
-              </button>
+              ) : (
+                user && (
+                <VehicleForm
+                  vehicle={selectedVehicle}
+                  userId={user.id}
+                  onSave={handleSave}
+                  onCancel={() => setShowForm(false)}
+                />
+                )
+              )}
             </div>
-          )}
-          {showForm && selectedVehicle && user && (
-            <VehicleForm
-              vehicle={selectedVehicle}
-              userId={user.id}
-              onSave={handleSave}
-            />
           )}
         </div>
 
+        {/* Show a loading indicator for services that doesn't replace content */}
         {servicesLoading && initialLoadDone && (
-          <div className="text-center py-4">
-            <div className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-primary"></div>
+          <div className="text-center py-4" role="status" aria-live="polite">
+            <div
+              className="animate-spin inline-block rounded-full h-6 w-6 border-t-2 border-primary"
+              aria-hidden="true"
+            ></div>
             <span className="ml-2">Updating services...</span>
           </div>
         )}

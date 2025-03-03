@@ -3,11 +3,12 @@ import Link from "next/link";
 import { useVehicles } from "@/contexts/VehicleContext";
 import { Car, Trash2 } from "lucide-react";
 import { formatDate } from "@/utils/dateUtils";
+import { Vehicle } from "@/types/vehicle";
 import ErrorDisplay from "./ErrorDisplay";
 import Modal from "./Modal";
 
 const VehicleList = () => {
-  const { vehicles, loading, error, removeVehicle, fetchVehicles } =
+  const { vehicles, loading, error, removeVehicle, fetchVehicles, clearError } =
     useVehicles();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
@@ -26,60 +27,103 @@ const VehicleList = () => {
     if (vehicleToDelete) {
       await removeVehicle(vehicleToDelete);
       closeModal();
-    } else {
-      console.error("No vehicle selected");
     }
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"></div>
+      <div
+        className="flex justify-center items-center h-64"
+        role="status"
+        aria-live="polite"
+      >
+        <div
+          className="animate-spin rounded-full h-10 w-10 border-t-2 border-primary"
+          aria-hidden="true"
+        ></div>
+        <span className="sr-only">Loading vehicles...</span>
       </div>
     );
   }
 
   if (error) {
-    return <ErrorDisplay message={error} onRetry={fetchVehicles} />;
+    return (
+      <ErrorDisplay
+        message={error}
+        details="There was a problem loading your vehicles."
+        onRetry={() => {
+          clearError();
+          fetchVehicles(true);
+        }}
+      />
+    );
   }
 
   return (
-    <div className="max-w-auto mx-auto">
+    <div>
       {vehicles.length === 0 ? (
-        <p className="text-neutral-800 text-center">No vehicles found.</p>
+        <div className="text-center py-10 bg-background-card rounded-lg shadow-md">
+          <Car
+            className="w-16 h-16 mx-auto text-neutral-400"
+            aria-hidden="true"
+          />
+          <h2 className="text-2xl font-bold text-neutral-800 mt-4">
+            No Vehicles Yet
+          </h2>
+          <p className="text-neutral-600 mt-2">
+            Add your first vehicle to start tracking maintenance and service
+            history.
+          </p>
+          <Link
+            href="/vehicles/add"
+            className="inline-block mt-4 bg-primary text-background px-6 py-2 rounded-lg hover:bg-primary-hover transition"
+          >
+            Add Your First Vehicle
+          </Link>
+        </div>
       ) : (
-        <ul className="space-y-2">
-          {vehicles.map((vehicle) => (
+        <ul className="space-y-4" aria-label="Vehicle list">
+          {vehicles.map((vehicle: Vehicle) => (
             <li
               key={vehicle.id}
-              className="bg-background shadow-md p-4 rounded-lg flex flex-col border border-neutral-600 text-neutral-800"
+              className="bg-background-card p-4 rounded-lg shadow-md hover:shadow-lg transition"
             >
-              <h3 className="text-lg font-semibold text-neutral-800">
-                {vehicle.make} {vehicle.model} ({vehicle.year}) :{" "}
-                {vehicle.nickname}
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                <p className="text-neutral-800 text-sm">
-                  <strong>Registration number:</strong>{" "}
-                  {vehicle.registration_number}
-                </p>
-                {vehicle.purchase_date && (
-                  <p className="text-sm text-neutral-600">
-                    Purchased: {formatDate(vehicle.purchase_date)}
-                  </p>
-                )}
-                <div className="flex justify-end items-center">
+              <div className="flex flex-col md:flex-row justify-between">
+                <div className="flex-1">
                   <Link
                     href={`/vehicles/${vehicle.id}`}
-                    className="text-primary hover:text-primary-hover flex items-center px-2"
+                    className="text-xl font-bold text-primary hover:text-primary-hover transition"
                   >
-                    <Car className="w-4 h-4 mr-1" /> See Details
+                    {vehicle.year} {vehicle.make} {vehicle.model}
+                  </Link>
+                  <div className="text-neutral-600 mt-1">
+                    {vehicle.registration_number && (
+                      <span className="mr-4">
+                        Registration Number: {vehicle.registration_number}
+                      </span>
+                    )}
+                    {vehicle.purchase_date && (
+                      <span>
+                        Purchased: {formatDate(vehicle.purchase_date)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end items-center space-x-2">
+                  <Link
+                    href={`/vehicles/${vehicle.id}`}
+                    className="bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition flex items-center"
+                    aria-label={`View details for ${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+                  >
+                    <Car className="w-4 h-4 mr-1" aria-hidden="true" /> Details
                   </Link>
                   <button
                     onClick={() => openModal(vehicle.id)}
-                    className="text-error hover:text-red-700 flex items-center px-2"
+                    className="bg-error text-background px-4 py-2 rounded-lg hover:bg-red-700 transition flex items-center"
+                    aria-label={`Delete ${vehicle.year} ${vehicle.make} ${vehicle.model}`}
                   >
-                    <Trash2 className="w-4 h-4 mr-1" /> Delete
+                    <Trash2 className="w-4 h-4 mr-1" aria-hidden="true" />{" "}
+                    Delete
                   </button>
                 </div>
               </div>
@@ -94,6 +138,10 @@ const VehicleList = () => {
         title="Confirm Deletion"
       >
         <p>Are you sure you want to delete this vehicle?</p>
+        <p className="text-sm text-neutral-600 mt-2">
+          This will also delete all service records associated with this
+          vehicle.
+        </p>
       </Modal>
     </div>
   );

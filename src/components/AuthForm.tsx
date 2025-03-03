@@ -73,41 +73,66 @@ const AuthForm: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto bg-background-card p-6 rounded-lg shadow-md">
-      <h2 className="text-2xl font-bold mb-4">
+    <div
+      className="max-w-md mx-auto bg-background-card p-6 rounded-lg shadow-md"
+      role="form"
+      aria-labelledby="auth-heading"
+    >
+      <h2 id="auth-heading" className="text-2xl font-bold mb-4">
         {isLogin ? "Log In" : "Sign Up"}
       </h2>
-      {error && <p className="text-error">{error}</p>}
+      {error && (
+        <p className="text-error" role="alert">
+          {error}
+        </p>
+      )}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <label htmlFor="email">Email:</label>
-        <input
-          id="email"
-          type="email"
-          className={getInputClassName(errors.email)}
-          aria-label="Email"
-          disabled={isSubmitting}
-          {...register("email", validationRules.email)}
-        />
-        {errors.email && (
-          <p className="text-error text-sm">{errors.email.message}</p>
-        )}
+        <div className="mb-4">
+          <label htmlFor="email" className="block mb-1">
+            Email:
+          </label>
+          <input
+            id="email"
+            type="email"
+            className={getInputClassName(errors.email)}
+            aria-label="Email"
+            aria-invalid={errors.email ? "true" : "false"}
+            aria-describedby={errors.email ? "email-error" : undefined}
+            disabled={isSubmitting}
+            {...register("email", validationRules.email)}
+          />
+          {errors.email && (
+            <p id="email-error" className="text-error text-sm" role="alert">
+              {errors.email.message}
+            </p>
+          )}
+        </div>
 
-        <label htmlFor="password">Password:</label>
-        <input
-          id="password"
-          type="password"
-          className={getInputClassName(errors.password)}
-          aria-label="Password"
-          disabled={isSubmitting}
-          {...register("password", validationRules.password)}
-        />
-        {errors.password && (
-          <p className="text-error text-sm">{errors.password.message}</p>
-        )}
+        <div className="mb-4">
+          <label htmlFor="password" className="block mb-1">
+            Password:
+          </label>
+          <input
+            id="password"
+            type="password"
+            className={getInputClassName(errors.password)}
+            aria-label="Password"
+            aria-invalid={errors.password ? "true" : "false"}
+            aria-describedby={errors.password ? "password-error" : undefined}
+            disabled={isSubmitting}
+            {...register("password", validationRules.password)}
+          />
+          {errors.password && (
+            <p id="password-error" className="text-error text-sm" role="alert">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
 
         <button
           type="submit"
           disabled={isSubmitting}
+          aria-busy={isSubmitting ? "true" : "false"}
           className={`bg-primary text-background w-full p-2 my-4 rounded-lg hover:bg-primary-hover transition ${
             isSubmitting ? "opacity-70 cursor-not-allowed" : ""
           }`}

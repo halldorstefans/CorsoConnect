@@ -18,9 +18,15 @@ interface Props {
   vehicle?: Vehicle;
   userId: string;
   onSave: () => void;
+  onCancel?: () => void;
 }
 
-const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
+const VehicleForm: React.FC<Props> = ({
+  vehicle,
+  userId,
+  onSave,
+  onCancel,
+}) => {
   const { saveVehicleData } = useVehicles();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,17 +106,19 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      aria-labelledby="vehicle-form-heading"
+    >
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-neutral-800 text-center md:text-left">
+        <h1
+          id="vehicle-form-heading"
+          className="text-3xl font-bold text-neutral-800 text-center md:text-left"
+        >
           {vehicle ? "Edit Vehicle" : "Add Vehicle"}
         </h1>
-        <Link href="/vehicles" className="text-primary hover:underline">
-          ← Back to Vehicles
-        </Link>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">        
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label
             htmlFor="make"
@@ -122,10 +130,14 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
             id="make"
             className={getInputClassName(errors.make)}
             placeholder="Make (e.g. Toyota)"
+            aria-invalid={errors.make ? "true" : "false"}
+            aria-describedby={errors.make ? "make-error" : undefined}
             {...register("make", validationRules.vehicle.make)}
           />
           {errors.make && (
-            <p className="text-error text-sm">{errors.make.message}</p>
+            <p id="make-error" className="text-error text-sm" role="alert">
+              {errors.make.message}
+            </p>
           )}
         </div>
 
@@ -140,10 +152,14 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
             id="model"
             className={getInputClassName(errors.model)}
             placeholder="Model (e.g. Corolla)"
+            aria-invalid={errors.model ? "true" : "false"}
+            aria-describedby={errors.model ? "model-error" : undefined}
             {...register("model", validationRules.vehicle.model)}
           />
           {errors.model && (
-            <p className="text-error text-sm">{errors.model.message}</p>
+            <p id="model-error" className="text-error text-sm" role="alert">
+              {errors.model.message}
+            </p>
           )}
         </div>
 
@@ -158,11 +174,18 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
             id="year"
             type="number"
             className={getInputClassName(errors.year)}
-            placeholder="Year"
-            {...register("year", validationRules.vehicle.year)}
+            placeholder="Year (e.g. 2020)"
+            aria-invalid={errors.year ? "true" : "false"}
+            aria-describedby={errors.year ? "year-error" : undefined}
+            {...register("year", {
+              ...validationRules.vehicle.year,
+              valueAsNumber: true,
+            })}
           />
           {errors.year && (
-            <p className="text-error text-sm">{errors.year.message}</p>
+            <p id="year-error" className="text-error text-sm" role="alert">
+              {errors.year.message}
+            </p>
           )}
         </div>
 
@@ -298,21 +321,32 @@ const VehicleForm: React.FC<Props> = ({ vehicle, userId, onSave }) => {
         </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className={`w-full my-4 rounded-lg text-background-card transition ${
-          isSubmitting
-            ? "bg-neutral-600 cursor-not-allowed"
-            : "bg-primary hover:bg-primary-hover"
-        }`}
-      >
-        {isSubmitting
-          ? "Saving..."
-          : vehicle
-            ? "Update Vehicle"
-            : "Add Vehicle"}
-      </button>
+      <div className="flex gap-4 mt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="flex-1 p-2 bg-neutral-200 text-neutral-800 rounded-lg hover:bg-neutral-300 transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          aria-busy={isSubmitting ? "true" : "false"}
+          className={`flex-1 p-2 rounded-lg text-background-card transition ${
+            isSubmitting
+              ? "bg-neutral-600 cursor-not-allowed"
+              : "bg-primary hover:bg-primary-hover"
+          }`}
+        >
+          {isSubmitting
+            ? "Saving..."
+            : vehicle
+              ? "Update Vehicle"
+              : "Add Vehicle"}
+        </button>
+      </div>
     </form>
   );
 };

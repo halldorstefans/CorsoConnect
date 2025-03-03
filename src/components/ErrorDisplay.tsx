@@ -13,7 +13,11 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   onRetry,
 }) => {
   return (
-    <div className="text-center p-6 bg-background-card rounded-lg shadow-md border border-neutral-300">
+    <div
+      className="text-center p-6 bg-background-card rounded-lg shadow-md border border-neutral-300"
+      role="alert"
+      aria-live="assertive"
+    >
       <p className="text-error font-bold text-lg mb-2">{message}</p>
       <p className="text-neutral-600 mb-4">{details}</p>
       {onRetry && (
@@ -21,7 +25,7 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
           onClick={onRetry}
           className="flex items-center justify-center mx-auto bg-primary text-background px-4 py-2 rounded-lg hover:bg-primary-hover transition"
         >
-          <RefreshCw className="w-4 h-4 mr-2" /> Try Again
+          <RefreshCw className="w-4 h-4 mr-2" aria-hidden="true" /> Try Again
         </button>
       )}
     </div>

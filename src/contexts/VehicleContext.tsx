@@ -370,7 +370,7 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
-  // Load vehicles when user changes, but only once
+  // Fetch vehicles when user changes
   useEffect(() => {
     if (user && !dataFetched) {
       fetchVehicles();
@@ -384,6 +384,49 @@ export function VehicleProvider({ children }: { children: React.ReactNode }) {
       setDataFetched(false);
     }
   }, [user, dataFetched, fetchVehicles]);
+
+  // Update vehicle stats when services change
+  const updateVehicleStats = useCallback(() => {
+    if (services.length > 0) {
+      const stats: { [key: string]: VehicleStats } = {};
+      services.forEach((service) => {
+        if (!stats[service.vehicle_id]) {
+          stats[service.vehicle_id] = {
+            vehicleTotalCost: 0,
+            vehicleServiceCount: 0,
+          };
+        }
+        stats[service.vehicle_id].vehicleTotalCost += service.cost;
+        stats[service.vehicle_id].vehicleServiceCount += 1;
+      });
+      setVehicleStats(stats);
+    }
+  }, [services]);
+
+  useEffect(() => {
+    updateVehicleStats();
+  }, [updateVehicleStats]);
+
+  // Update service stats when selected vehicle changes
+  const updateServiceStats = useCallback(() => {
+    if (selectedVehicle && services.length > 0) {
+      const vehicleServices = services.filter(
+        (service) => service.vehicle_id === selectedVehicle.id,
+      );
+      const stats = {
+        totalServicesCost: vehicleServices.reduce(
+          (sum, service) => sum + service.cost,
+          0,
+        ),
+        totalServices: vehicleServices.length,
+      };
+      setServiceStats(stats);
+    }
+  }, [selectedVehicle, services]);
+
+  useEffect(() => {
+    updateServiceStats();
+  }, [updateServiceStats]);
 
   return (
     <VehicleContext.Provider value={value}>{children}</VehicleContext.Provider>
